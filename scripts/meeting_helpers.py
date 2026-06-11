@@ -133,6 +133,16 @@ def is_git_repo(path: Path) -> bool:
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
+def git_top_level(path: Path) -> Path | None:
+    try:
+        result = run_git(["rev-parse", "--show-toplevel"], path, check=False)
+    except RuntimeError:
+        return None
+    if result.returncode != 0:
+        return None
+    return Path(result.stdout.strip()).resolve()
+
+
 def init_git_repo(path: Path) -> bool:
     path.mkdir(parents=True, exist_ok=True)
     if is_git_repo(path):
@@ -172,6 +182,18 @@ def git_changed_paths(path: Path) -> list[Path]:
             changed_path = changed_path.split(" -> ", 1)[1].strip()
         changed.append(Path(changed_path))
     return changed
+
+
+def git_ignored_untracked_paths(path: Path) -> list[Path]:
+    try:
+        result = run_git(
+            ["ls-files", "--others", "--ignored", "--exclude-standard", "-z"],
+            path,
+        )
+    except RuntimeError as error:
+        warn(f"Could not inspect ignored Git paths at {path}: {error}")
+        return []
+    return [Path(item) for item in result.stdout.split("\0") if item]
 
 
 def is_portfolio_metadata_path(path: Path) -> bool:
@@ -228,18 +250,29 @@ def repository_files(path: Path) -> set[Path]:
     }
 
 
-def commit_git_repo(path: Path, message: str, paths: Iterable[Path] | None = None) -> bool:
+def commit_git_repo(
+    path: Path,
+    message: str,
+    paths: Iterable[Path] | None = None,
+    force_paths: Iterable[Path] | None = None,
+) -> bool:
     if not is_git_repo(path):
         if not init_git_repo(path):
             return False
-    if not git_has_changes(path):
+    force_path_set = set(force_paths or [])
+    if not git_has_changes(path) and not force_path_set:
         return False
-    selected_paths = [str(item) for item in paths] if paths is not None else []
+    selected_path_set = set(paths or [])
+    selected_paths = [str(item) for item in selected_path_set - force_path_set] if paths is not None else []
+    selected_force_paths = [str(item) for item in force_path_set]
     try:
         if paths is not None:
-            if not selected_paths:
+            if not selected_paths and not selected_force_paths:
                 return False
-            run_git(["add", "--", *selected_paths], path)
+            if selected_paths:
+                run_git(["add", "--", *selected_paths], path)
+            if selected_force_paths:
+                run_git(["add", "-f", "--", *selected_force_paths], path)
         else:
             run_git(["add", "."], path)
         diff_result = run_git(["diff", "--cached", "--quiet"], path, check=False)
@@ -394,13 +427,25 @@ def is_inside_legacy_projects_dir(path: Path, ancestor: Path) -> bool:
     return len(relative.parts) >= 2 and relative.parts[0] == "projects"
 
 
+def has_project_knowledge_marker(path: Path) -> bool:
+    return (path / "project.md").exists() and (path / "project-config.yaml").exists()
+
+
+def is_existing_project_git_root(project_root: Path) -> bool:
+    top_level = git_top_level(project_root)
+    return top_level == project_root.resolve() and has_project_knowledge_marker(project_root)
+
+
 def ensure_project_root_boundary(project_root: Path, adopt_existing: bool = False) -> None:
     if adopt_existing:
         return
     existing_parent = nearest_existing_parent(project_root)
+    if existing_parent == project_root and is_existing_project_git_root(project_root):
+        return
     if is_git_repo(existing_parent):
+        top_level = git_top_level(existing_parent) or existing_parent
         raise SystemExit(
-            f"Refusing to initialize project knowledge repo inside existing Git worktree: {existing_parent}. "
+            f"Refusing to initialize project knowledge repo inside existing Git worktree: {top_level}. "
             "Use an independent directory, or pass --adopt-existing only after confirming the boundary."
         )
     for ancestor in [project_root, *project_root.parents]:
@@ -411,7 +456,7 @@ def ensure_project_root_boundary(project_root: Path, adopt_existing: bool = Fals
                 f"Refusing to initialize project knowledge inside legacy/portfolio vault projects/: {ancestor}. "
                 "Use migrate-project --dry-run or the explicit legacy flow."
             )
-        if ancestor != project_root and (ancestor / "project-config.yaml").exists() and (ancestor / "project.md").exists():
+        if ancestor != project_root and has_project_knowledge_marker(ancestor):
             raise SystemExit(f"Refusing to initialize nested project knowledge repo inside existing project root: {ancestor}")
 
 
@@ -941,6 +986,7 @@ def validate_project_root(
     fallback_profile: str = "minimal",
     require_repository_dirs: bool = True,
     strict_artifact_hashes: bool = False,
+    legacy_compat: bool = False,
 ) -> ValidationResult:
     result = ValidationResult()
     if not project_root.exists():
@@ -957,24 +1003,30 @@ def validate_project_root(
     validate_required(project_root / "project.md", result)
     validate_required(project_root / "project-config.yaml", result)
     project_text = read_text(project_root / "project.md")
-    if "## 协作与共享边界" not in project_text:
+    if not legacy_compat and "## 协作与共享边界" not in project_text:
         result.error(f"{project_root / 'project.md'}: missing 协作与共享边界 section")
     config_text = read_text(project_root / "project-config.yaml")
-    for key in [
-        "repository_role:",
-        "collaboration_scope:",
-        "remote_policy:",
-        "cross_project_references:",
-        "artifact_git_policy:",
-        "raw_media_default:",
-        "large_binary_default:",
-        "max_default_artifact_size_mb:",
-    ]:
-        if key not in config_text:
-            result.error(f"{project_root / 'project-config.yaml'}: missing {key}")
-    repository_role = parse_scalar_config(project_root / "project-config.yaml", "repository_role", "")
-    if repository_role != "project_knowledge":
-        result.error(f"{project_root / 'project-config.yaml'}: repository_role must be project_knowledge")
+    if legacy_compat:
+        result.warn(
+            f"{project_root}: legacy vault project layout detected; validate-project is running in compatibility mode. "
+            "Use migrate-project --dry-run before splitting this project into an independent knowledge repository."
+        )
+    else:
+        for key in [
+            "repository_role:",
+            "collaboration_scope:",
+            "remote_policy:",
+            "cross_project_references:",
+            "artifact_git_policy:",
+            "raw_media_default:",
+            "large_binary_default:",
+            "max_default_artifact_size_mb:",
+        ]:
+            if key not in config_text:
+                result.error(f"{project_root / 'project-config.yaml'}: missing {key}")
+        repository_role = parse_scalar_config(project_root / "project-config.yaml", "repository_role", "")
+        if repository_role != "project_knowledge":
+            result.error(f"{project_root / 'project-config.yaml'}: repository_role must be project_knowledge")
     for filename in [
         "current-summary.md",
         "current-decisions.md",
@@ -992,7 +1044,8 @@ def validate_project_root(
             "decision-types.md",
             "writing-style.md",
         ]:
-            validate_required(project_root / "domain" / filename, result)
+            if not legacy_compat:
+                validate_required(project_root / "domain" / filename, result)
         for filename in [
             "by-domain.md",
             "domain-context.md",
@@ -1025,6 +1078,20 @@ def validate_project(vault_root: Path, project_id: str) -> ValidationResult:
         vault_root / "projects" / project_id,
         vault_profile(vault_root),
         require_repository_dirs=False,
+        legacy_compat=True,
+    )
+
+
+def has_legacy_global_registers(vault_root: Path) -> bool:
+    return any(
+        (vault_root / "global" / filename).exists()
+        for filename in [
+            "current-summary.md",
+            "decision-register.md",
+            "open-question-register.md",
+            "todo-register.md",
+            "timeline.md",
+        ]
     )
 
 
@@ -1044,9 +1111,15 @@ def validate_vault(vault_root: Path) -> ValidationResult:
             "writing-style.md",
         ]:
             validate_required(vault_root / "domain" / filename, result)
-        validate_required(vault_root / "global/project-index.md", result)
-        validate_required(vault_root / "global/access-boundaries.md", result)
-        validate_required(vault_root / "global/sync-status.md", result)
+        if has_legacy_global_registers(vault_root):
+            result.warn(
+                f"{vault_root}: legacy global fact registers detected; validate-vault is running in compatibility mode. "
+                "Use migrate-project --dry-run before splitting projects into independent knowledge repositories."
+            )
+        else:
+            validate_required(vault_root / "global/project-index.md", result)
+            validate_required(vault_root / "global/access-boundaries.md", result)
+            validate_required(vault_root / "global/sync-status.md", result)
 
     projects_root = vault_root / "projects"
     if projects_root.exists():
@@ -1303,6 +1376,8 @@ def main() -> None:
         set_project_root_domains(project_root, args.domains)
         print(project_root / "project-config.yaml")
     elif args.command == "commit":
+        project_commit_paths = None
+        project_commit_force_paths = None
         if args.project_root:
             repo_root = args.project_root.expanduser().resolve()
             if not args.allow_invalid:
@@ -1324,8 +1399,14 @@ def main() -> None:
                     print(f"ERROR: risky artifact path: {path}")
                 raise SystemExit(1)
             allowed_paths = [path for path in changed_paths if is_project_knowledge_path(path)]
+            ignored_artifact_paths: list[Path] = []
             if args.include_artifacts:
                 allowed_paths.extend(path for path in changed_paths if is_artifact_or_inbox_path(path))
+                ignored_artifact_paths = [
+                    path for path in git_ignored_untracked_paths(repo_root) if is_artifact_or_inbox_path(path)
+                ]
+                allowed_paths.extend(ignored_artifact_paths)
+                project_commit_force_paths = ignored_artifact_paths
             unknown_paths = sorted(set(changed_paths) - set(allowed_paths))
             if unknown_paths and not args.include_extra:
                 print(
@@ -1336,7 +1417,7 @@ def main() -> None:
                 for path in unknown_paths:
                     print(f"ERROR: unknown path: {path}")
                 raise SystemExit(1)
-            project_commit_paths = changed_paths if args.include_extra else allowed_paths
+            project_commit_paths = changed_paths + ignored_artifact_paths if args.include_extra else allowed_paths
         elif args.vault_root:
             repo_root = args.vault_root.expanduser().resolve()
             if not args.allow_invalid:
@@ -1361,6 +1442,7 @@ def main() -> None:
             repo_root,
             args.message,
             project_commit_paths if args.project_root else None,
+            project_commit_force_paths if args.project_root else None,
         )
         print("Committed" if did_commit else "No changes to commit")
     elif args.command == "migrate-project":
