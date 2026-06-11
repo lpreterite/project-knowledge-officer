@@ -1,0 +1,22 @@
+version: 1
+profile: "minimal"
+language: "zh-CN"
+# 项目级 taxonomy 是执行时的权威来源；vault.yaml 只作为新项目默认值。
+domains:
+  - "业务目标"
+  - "范围/需求"
+  - "方案/决策"
+  - "数据/证据"
+  - "交付/执行"
+  - "风险/依赖"
+  - "协作/责任"
+required_current_files:
+  - "current-summary.md"
+  - "current-decisions.md"
+  - "current-open-questions.md"
+  - "current-todos.md"
+  - "timeline.md"
+advanced_layers:
+  by_domain: false
+  domain_context: false
+  source_map: false

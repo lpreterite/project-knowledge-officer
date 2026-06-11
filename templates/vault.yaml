@@ -1,0 +1,17 @@
+version: 1
+profile: "minimal"
+language: "zh-CN"
+source_policy: "meeting_or_artifact_required"
+time_policy: "meeting_datetime_only"
+domains:
+  - "业务目标"
+  - "范围/需求"
+  - "方案/决策"
+  - "数据/证据"
+  - "交付/执行"
+  - "风险/依赖"
+  - "协作/责任"
+enabled_layers:
+  domain_knowledge: false
+  global_registers: false
+
