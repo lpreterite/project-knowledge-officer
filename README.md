@@ -1,8 +1,55 @@
 # Meeting Helpers
 
-这是一套可下放到其他仓库的会议知识库维护辅助文件。`meeting-helpers` 自己是机制包，不保存真实会议知识。
+这是一套给 Codex 或其他本地通用 Agent 使用的会议知识库维护机制。目标是让普通白领不用手敲命令，也能把会议录音、ASR、附件、PDF/PPT、截图和补充信息整理成可追溯、可迭代、可按项目汇总的本地 Markdown 知识库。
 
-## 包含内容
+第一版默认是本地使用，不是云端 SaaS。`meeting-helpers` 自己是机制包，只保存规则、模板、prompt、脚本和示例结构，不保存真实会议知识。
+
+## 普通版怎么开始
+
+普通版是默认入口。用户只需要在 Codex 或本地 Agent 里说：
+
+```text
+帮我为「项目名」建立会议知识库。
+```
+
+Agent 只需要向用户确认：
+
+1. 项目叫什么？
+2. 使用普通版还是 DIY 版？
+3. 此项目默认只给你本人本机使用；如果以后要共享给同事，我会先帮你检查敏感附件和共享范围。是否按这个默认设置？
+
+项目知识文件夹默认建议放在：
+
+```text
+~/MeetingKnowledge/<project-id>-knowledge
+```
+
+用户可以指定其他路径，但普通版不把路径作为必答问题。
+
+以后有新会议时，用户可以直接把材料交给 Agent，并说明：
+
+```text
+把这场会议入库到「项目名」，会议实际日期是 YYYY-MM-DD。
+```
+
+普通版每场会议只把两件事作为必答：属于哪个项目、会议实际发生日期。会议主题、地点、材料类型、参会人、owner 和 due 由 Agent 先从材料中提取；提不出来就写 `unknown` 或列为待确认项，不阻塞初稿。会议实际日期不明确时必须先问用户，因为它决定知识排序。
+
+普通版用户只需要理解 4 个概念：
+
+| 概念 | 含义 |
+| --- | --- |
+| 项目文件夹 | 某个项目的会议和项目知识都在一个本地文件夹中。 |
+| 待处理材料 | 新会议文字、录音、PDF、PPT、图片或补充说明都可以交给 Agent。 |
+| 当前项目状态 | Agent 维护项目当前总结、决定、待办、未决问题和时间线。 |
+| 来源证据 | 重要结论都要能追到会议或附件。 |
+
+## DIY 版什么时候用
+
+当用户想自己调整模板、分类、脚本、Git、校验、附件策略或协作边界时，切换到 DIY 版。DIY 版不是能力等级标签，而是“用户愿意自己动手配置和维护”的工作方式。
+
+双模式规则见 [docs/ordinary-and-diy-modes.md](docs/ordinary-and-diy-modes.md)。现有脚本和配置里的 `minimal` / `advanced` 是内部 profile 兼容名：`minimal` 是普通版能力底座，`advanced` 是 DIY 版可以启用的结构能力扩展。
+
+## 机制包包含内容
 
 ```text
 meeting-helpers/
@@ -41,6 +88,7 @@ meeting-helpers/
 ├── scripts/
 │   └── meeting_helpers.py
 ├── docs/
+│   ├── ordinary-and-diy-modes.md
 │   ├── adoption-levels.md
 │   └── versioning.md
 └── examples/
@@ -70,25 +118,25 @@ project-a-knowledge/
 - 甲丙共享 A。
 - 乙丙没有直接共享项目。
 
-项目 knowledge 仓库默认使用本地 Git 形成可追溯版本历史；远端不是前置条件。需要多人协作、跨设备同步、备份或审计时，再创建远端仓库，例如 `project-a-knowledge.git`。
+项目 knowledge 仓库默认使用本地 Git 形成可追溯版本历史；远端不是前置条件。普通版中这些动作由 Agent 执行，不要求用户理解 Git。需要多人协作、跨设备同步、备份或审计时，再创建远端仓库，例如 `project-a-knowledge.git`。
 
 每个项目 knowledge 仓库都应在 `project.md` 和 `project-config.yaml` 中声明协作与共享边界。默认语义是：知识只对本项目参与者共享，不存在隐式全局共享；跨项目引用必须保留明确来源，并经用户确认后才进入另一个项目的当前结论。
 
 原来的“一个 vault Git 管多个 `projects/<project-id>/`”现在只作为 portfolio/index 或 legacy/special-case 模式，见 [docs/versioning.md](docs/versioning.md)。
 
-## 放到新仓库的方式
+## DIY 版：放到新仓库的方式
 
-最简单方式：
+如果你要把这套机制下放到另一个机制仓库，最简单方式：
 
 1. 把 `AGENTS.md` 复制到目标机制仓库根目录。
 2. 把 `prompts/`、`templates/`、`checklists/` 和 `scripts/` 复制到目标机制仓库。
-3. 先按 [docs/adoption-levels.md](docs/adoption-levels.md) 选择 `minimal` 或 `advanced`。
+3. 先按 [docs/adoption-levels.md](docs/adoption-levels.md) 选择普通版或 DIY 版；脚本参数仍使用 `minimal` / `advanced` 作为内部 profile 名。
 4. 为每个真实项目创建独立的 `<project-knowledge-root>`。
 5. 在团队文档中记录项目知识仓库本地路径；只有需要多人协作时才配置远端地址。
 
 `<project-knowledge-root>` 应是独立目录和独立本地 Git 仓库。不要在 `meeting-helpers` 机制包仓库、legacy vault 的 `projects/` 子目录、或另一个 project knowledge repo 内运行 `init-project`。确需接管已有目录时，必须显式使用 `--adopt-existing`。
 
-## 最小项目知识仓库结构
+## 普通版能力底座
 
 ```text
 <project-knowledge-root>/
@@ -106,7 +154,9 @@ project-a-knowledge/
     └── superseded/
 ```
 
-`advanced` profile 会额外增加：
+## DIY 版结构扩展
+
+DIY 版需要领域知识、项目 taxonomy 或 source map 时，可以启用脚本里的 `advanced` profile，额外增加：
 
 ```text
 <project-knowledge-root>/
@@ -135,12 +185,12 @@ meetings/YYYY/YYYY-MM-DD_<location>_<topic>/
     └── manifest.yaml
 ```
 
-## 基本使用流程
+## Agent 内部基本流程
 
 1. 新材料进入项目知识仓库的 `inbox/`。
 2. 读取 `project-config.yaml` 和当前项目知识文件。
-3. 如果启用了 advanced profile，再读取项目仓库内 `domain/*` 和 `knowledge/*context` 文件。
-4. 确认项目、会议实际日期、地点、主题和 ASR 状态。
+3. 如果启用了 DIY 版结构扩展，再读取项目仓库内 `domain/*` 和 `knowledge/*context` 文件。
+4. 普通版只向用户确认项目和会议实际日期；主题、地点、材料类型和 ASR 状态先由 Agent 识别并回显。
 5. 创建会议目录，保留原始 transcript 和附件。
 6. 用 `prompts/analyze-meeting.md` 生成 `analysis.md`。
 7. 用 `prompts/update-rollups.md` 更新项目 `knowledge/current-*`。
@@ -148,7 +198,7 @@ meetings/YYYY/YYYY-MM-DD_<location>_<topic>/
 9. 检查 source、Domain、unknown owner / due、冲突和时间可信度。
 10. 验证通过后提交本地 Git 版本；只有多人协作或同步需要时才推送远端。
 
-## 可选脚本
+## DIY 版：可选脚本
 
 如果目标项目知识仓库还没有自己的脚本，可以先用 `scripts/meeting_helpers.py` 创建最小结构。
 
@@ -162,7 +212,7 @@ python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge i
 
 `init-project` 默认会执行本地 `git init` 并创建初始 baseline commit。baseline commit 只包含本次脚手架生成的文件；如果目录里已有其他材料，不会被自动纳入初始提交。特殊场景不想初始化 Git 时，可加 `--no-git`。如果本机缺少 Git 或 Git 作者配置导致 commit 失败，脚本会保留已创建目录并输出 warning。
 
-初始化 advanced 项目知识仓库：
+初始化 DIY 版结构扩展项目知识仓库：
 
 ```bash
 python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge init-project \
@@ -264,7 +314,7 @@ dry-run 只列出复制范围、验证问题和 global fact register 依赖，�
 
 为了让纪要有行业和团队语境，而不是泛泛摘要，helper 包提供领域知识模板。
 
-领域知识层属于 `advanced` profile。Minimal profile 不要求维护这些文件。
+领域知识层属于 DIY 版结构扩展，对应内部 `advanced` profile。普通版能力底座不要求维护这些文件。
 
 项目知识仓库级：
 

@@ -1,12 +1,26 @@
 # Adoption Levels
 
-这套机制分两层使用，避免新用户一开始被完整体系压垮。两层都以“每个项目一个 knowledge 仓库”为默认边界。
+这套机制面向两种使用方式：普通版和 DIY 版。两种方式都默认使用“每个项目一个 knowledge 仓库”，真实会议知识不放在 `meeting-helpers` 机制包仓库里。
 
-## Minimal
+脚本和模板中仍保留 `minimal` / `advanced` 作为内部 profile 兼容名：
 
-适合刚开始使用，目标是先把会议事实、决定、todo 和未决事项维护起来。
+- `minimal`：普通版能力底座。
+- `advanced`：DIY 版可以启用的结构能力扩展。
 
-项目 knowledge 仓库：
+面向用户沟通时，优先使用“普通版 / DIY 版”，不要把 `minimal` / `advanced` 当作主称呼。
+
+## 普通版
+
+普通版适合默认用户：他们在 Codex 或其他本地通用 Agent 里交付会议材料，希望 Agent 帮他们管理项目知识，而不是自己维护脚本、YAML 和 Git。
+
+普通版只暴露 4 个概念：
+
+- 项目文件夹。
+- 待处理材料。
+- 当前项目状态。
+- 来源证据。
+
+普通版项目 knowledge 仓库使用 `minimal` profile：
 
 ```text
 <project-knowledge-root>/
@@ -24,13 +38,13 @@
     └── superseded/
 ```
 
-Minimal 也允许在表格里使用 `Domain`，但不要求维护 `by-domain.md`。
+普通版也允许在表格里使用 `Domain`，但不要求用户维护 `by-domain.md` 或领域知识文件。
 
-## Advanced
+## DIY 版
 
-适合会议数量多、领域术语多、项目内部多人维护或需要更强追溯的场景。
+DIY 版适合愿意动手配置和维护机制的用户。Agent 可以解释目录结构、模板、taxonomy、Git、校验、附件策略和脚本参数，并协助用户修改。
 
-Advanced 在 Minimal 基础上增加：
+DIY 版可以在普通版结构上启用 `advanced` profile：
 
 项目仓库级：
 
@@ -53,6 +67,19 @@ knowledge/
 ├── project-taxonomy.md
 └── source-map.md
 ```
+
+不要为了显得完整而启用没人看的文件。只有当同一个术语、实体、指标、分类、协作策略或来源材料在项目中反复出现，才建议打开对应结构能力。
+
+## 模式转换
+
+普通版和 DIY 版可以互相转换。转换首先改变 Agent 如何协作，其次才改变项目结构。
+
+- 普通版转 DIY 版：不改变已有会议事实，只增加可配置表面和解释文档。
+- DIY 版转普通版：不删除配置、历史或领域文件，只让 Agent 重新接管执行细节。
+- 转换前后都应运行项目校验。
+- 转换不得改写 existing decisions、todos 或 open questions 的含义。
+
+详细规则见 [ordinary-and-diy-modes.md](ordinary-and-diy-modes.md)。
 
 ## Portfolio / Index
 
@@ -77,9 +104,9 @@ Legacy fact vault commit 属于迁移或特殊运维能力，不是推荐工作�
 
 ## 选择建议
 
-- 新用户默认从 Minimal 项目仓库开始。
-- 当同一个术语、实体、指标或分类在项目内反复出现，再打开 Advanced。
+- 新用户默认从普通版开始。
+- 用户要求配置、排错、审计、模板调整或协作策略时，再切到 DIY 版。
+- 当同一个术语、实体、指标或分类在项目内反复出现，再启用 `advanced` profile 的结构扩展。
 - 当需要跨项目查看目录、权限边界或同步状态，再单独建立 portfolio/index。
 - 项目 knowledge 仓库默认初始化本地 Git，并在每次入库或 rollup 验证通过后提交本地 commit。
 - Git 远端只在多人协作、跨设备同步、备份或审计需要时配置。
-- 不要为了显得完整而维护没人看的文件。

@@ -12,6 +12,43 @@
 - 新会议是否更新、替代或冲突了旧结论？
 - 当前项目在不同业务层次上分别处于什么状态？
 
+## User-Facing Modes
+
+默认按普通版协作。普通版面向不想理解目录、YAML、Git 或脚本参数的用户；Agent 执行机制细节，只把必要业务问题问给用户。
+
+普通版只暴露 4 个概念：
+
+- 项目文件夹：某个项目的会议和知识保存在一个本地文件夹中。
+- 待处理材料：会议文字、录音、PDF、PPT、图片或补充说明都可以交给 Agent。
+- 当前项目状态：Agent 维护当前总结、决定、待办、未决问题和时间线。
+- 来源证据：重要结论都要能追到会议或附件。
+
+只有用户明确要求 DIY、配置、排错、审计、模板调整、taxonomy 调整、Git/脚本细节或协作策略时，才切到 DIY 版。DIY 版可以解释和修改目录结构、模板、`project-config.yaml`、Domain/taxonomy、Git、校验、artifact 策略和脚本参数。
+
+脚本和配置里的 `minimal` / `advanced` 是内部 profile 兼容名：`minimal` 是普通版能力底座，`advanced` 是 DIY 版可以启用的结构能力扩展。面向用户时优先说“普通版 / DIY 版”，不要把 `advanced` 当作用户可见模式名。
+
+普通版项目初始化只问：
+
+1. 项目叫什么？
+2. 使用普通版还是 DIY 版？
+3. 默认隐私确认：“此项目默认只给你本人本机使用；如果以后要共享给同事，我会先帮你检查敏感附件和共享范围。是否按这个默认设置？”
+
+项目知识文件夹默认建议为 `~/MeetingKnowledge/<project-id>-knowledge`。用户可以指定其他路径，但普通版不把路径作为必答问题。
+
+普通版单场会议入库只问：
+
+1. 这场会议属于哪个项目？
+2. 会议实际发生日期是什么？
+
+会议主题、地点、材料类型、参会人、owner 和 due 由 Agent 先从材料中提取并回显；提不出来时写 `unknown` 或列为待确认项，不阻塞初稿。会议实际发生日期不明确时必须停止并询问，因为它影响知识排序。
+
+模式转换规则：
+
+- 普通版转 DIY 版：不改变已有会议事实，不改写 decisions/todos/open questions，只增加可配置表面和解释文档。
+- DIY 版转普通版：不删除配置、历史或领域文件，只隐藏复杂概念，让 Agent 重新接管执行细节。
+- 转换前后都运行项目校验。
+- 转换不得改写 existing decisions、todos 或 open questions 的含义。
+
 ## Repository And Knowledge Boundary
 
 区分两个根目录：
@@ -19,7 +56,7 @@
 - 机制包仓库：保存 `AGENTS.md`、脚本、模板、prompt、checklist、治理文档和示例数据。
 - 项目 knowledge 仓库：保存单个真实项目的会议知识、项目 rollup、项目领域知识和附件。
 
-真实知识数据默认应按项目放在独立 knowledge 仓库中，而不是机制包仓库，也不是默认塞进一个统一大 vault。项目初始化时，先让用户确认或配置：
+真实知识数据默认应按项目放在独立 knowledge 仓库中，而不是机制包仓库，也不是默认塞进一个统一大 vault。普通版项目初始化时，默认使用 `~/MeetingKnowledge/<project-id>-knowledge`；用户指定路径时按用户路径执行。DIY 版可让用户显式确认或配置：
 
 ```text
 <project-knowledge-root>
@@ -49,7 +86,7 @@
     └── superseded/
 ```
 
-Advanced profile 可以额外启用：
+DIY 版结构扩展可以通过内部 `advanced` profile 额外启用：
 
 ```text
 <project-knowledge-root>/
@@ -97,6 +134,7 @@ Advanced profile 可以额外启用：
 开始工作前，优先阅读：
 
 - `README.md`
+- `docs/ordinary-and-diy-modes.md`
 - `prompts/analyze-meeting.md`
 - `prompts/update-rollups.md`
 - `templates/`
@@ -112,7 +150,7 @@ Advanced profile 可以额外启用：
 - `<project-knowledge-root>/knowledge/current-todos.md`
 - `<project-knowledge-root>/knowledge/timeline.md`
 
-如果启用了 advanced profile，再读：
+如果启用了 DIY 版结构扩展或内部 `advanced` profile，再读：
 
 - `<project-knowledge-root>/domain/glossary.md`
 - `<project-knowledge-root>/domain/taxonomy.md`
@@ -129,7 +167,7 @@ Advanced profile 可以额外启用：
 
 为了避免纪要泛泛而谈，项目 knowledge 仓库可以维护一层领域知识。领域知识只帮助理解会议，不替代会议事实来源。
 
-领域知识层属于 advanced profile。新用户应先从 minimal profile 开始，等术语、实体、指标或跨项目汇总需求稳定后再启用 advanced。
+领域知识层属于 DIY 版结构扩展，对应内部 `advanced` profile。新用户应先从普通版开始，等术语、实体、指标或跨项目汇总需求稳定后再启用这层结构。
 
 项目仓库级领域知识适合放该项目参与者共用内容：
 
@@ -165,8 +203,8 @@ Advanced profile 可以额外启用：
 
 1. 检查 `<project-knowledge-root>/inbox/` 是否有新会议材料。
 2. 读取项目 `project-config.yaml` 和当前项目知识文件。
-   - 如果启用了 advanced profile，再读取项目仓库级 `domain/` 文件和项目级 context 文件。
-3. 确认项目、会议实际发生日期、地点、主题、是否已有 ASR 文本。
+   - 如果启用了 DIY 版结构扩展或内部 `advanced` profile，再读取项目仓库级 `domain/` 文件和项目级 context 文件。
+3. 普通版只向用户确认项目和会议实际发生日期；地点、主题、是否已有 ASR 文本先由 Agent 自动识别并回显。
 4. 如果会议实际发生时间不明确，先问用户，不要用文件创建时间替代。
 5. 创建或确认项目目录。
 6. 创建会议目录：
@@ -183,7 +221,7 @@ Advanced profile 可以额外启用：
 
 8. 先生成单场会议 `analysis.md`。
 9. 再更新项目级 `knowledge/current-*` 和 `timeline.md`。
-10. 如果启用了 advanced profile，再更新 `by-domain.md` 和领域知识文件。
+10. 如果启用了 DIY 版结构扩展或内部 `advanced` profile，再更新 `by-domain.md` 和领域知识文件。
 11. 如会议引入新术语、实体、指标或分类，先在 `analysis.md` 中列为“领域知识更新建议”；确认后再更新项目仓库级或项目 knowledge 级领域知识文件。
 12. 如需跨项目视图，只在明确启用 portfolio/index 模式时更新项目索引、访问边界或同步状态；不得默认复制项目事实 register。
 13. 完成后检查 diff、来源链接、未确认时间、冲突、unknown owner / due。
@@ -307,12 +345,13 @@ Open question status：
 
 采用温和主动的协作方式：
 
-- 用户打招呼或泛泛询问时，简短回应后建议检查 `inbox/`、项目状态或未决事项。
-- 用户说有会议文件时，先检查 `inbox/`，再提醒需要确认项目、会议实际日期、地点、主题和 ASR 状态。
+- 用户打招呼或泛泛询问时，简短回应后建议检查待处理材料、项目状态或未决事项，优先使用普通版语言。
+- 用户说有会议文件时，先检查待处理材料或用户提供的文件；普通版只要求确认项目和会议实际日期，地点、主题和 ASR 状态由 Agent 先识别并回显。
 - 用户问项目状态时，先读项目 `current-summary.md` 和 `by-domain.md`，再按 domain 给摘要。
 - 用户问下一步时，给 1-3 个选项，并推荐默认路径。
 - 遇到不清楚的时间、冲突、owner、due 或优先级时，向用户确认，不要猜。
 - 如果会议里出现反复使用的新术语、别名、指标口径或分类，建议更新领域知识文件。
+- 用户主动要求 DIY、配置、排错、审计、模板调整或协作策略时，才解释内部目录、配置、Git、脚本参数和校验规则。
 
 ## Do
 
@@ -337,7 +376,7 @@ Open question status：
 - 不要把会议业务 todo 自动同步成工程 issue；只有变成工程实现任务时才进入工程 backlog。
 - 不要把领域知识当作会议事实来源；正式结论仍要链接到会议或 artifact。
 
-## Minimal Commands
+## Common Commands
 
 如果仓库提供脚本，优先用脚本。没有脚本时，按模板手工创建目录和文件。
 
