@@ -1,7 +1,16 @@
 version: 1
+repository_role: "project_knowledge"
 profile: "minimal"
 language: "zh-CN"
-# 项目级 taxonomy 是执行时的权威来源；vault.yaml 只作为新项目默认值。
+# 项目级 taxonomy 是执行时的权威来源；portfolio/index vault.yaml 只作为批量创建项目时的默认值。
+collaboration_scope: "project_participants_only"
+remote_policy: "explicit_when_collaboration_requires"
+cross_project_references: "explicit_source_and_confirmation_required"
+artifact_git_policy:
+  markdown_yaml_default: "commit"
+  raw_media_default: "external_or_explicit"
+  large_binary_default: "external_or_explicit"
+  max_default_artifact_size_mb: 25
 domains:
   - "业务目标"
   - "范围/需求"

@@ -6,26 +6,26 @@
 
 分析前应读取：
 
-- `<project>/project.md`
-- `<project>/project-config.yaml`
-- `<project>/knowledge/current-summary.md`
-- `<project>/knowledge/current-decisions.md`
-- `<project>/knowledge/current-open-questions.md`
-- `<project>/knowledge/current-todos.md`
-- `<project>/knowledge/timeline.md`
+- `<project-knowledge-root>/project.md`
+- `<project-knowledge-root>/project-config.yaml`
+- `<project-knowledge-root>/knowledge/current-summary.md`
+- `<project-knowledge-root>/knowledge/current-decisions.md`
+- `<project-knowledge-root>/knowledge/current-open-questions.md`
+- `<project-knowledge-root>/knowledge/current-todos.md`
+- `<project-knowledge-root>/knowledge/timeline.md`
 
 如果项目启用了 advanced profile，再读取：
 
-- `<vault-root>/domain/glossary.md`
-- `<vault-root>/domain/taxonomy.md`
-- `<vault-root>/domain/entity-registry.md`
-- `<vault-root>/domain/decision-types.md`
-- `<vault-root>/domain/writing-style.md`
-- `<project>/knowledge/by-domain.md`
-- `<project>/knowledge/domain-context.md`
-- `<project>/knowledge/entity-aliases.md`
-- `<project>/knowledge/project-taxonomy.md`
-- `<project>/knowledge/source-map.md`
+- `<project-knowledge-root>/domain/glossary.md`
+- `<project-knowledge-root>/domain/taxonomy.md`
+- `<project-knowledge-root>/domain/entity-registry.md`
+- `<project-knowledge-root>/domain/decision-types.md`
+- `<project-knowledge-root>/domain/writing-style.md`
+- `<project-knowledge-root>/knowledge/by-domain.md`
+- `<project-knowledge-root>/knowledge/domain-context.md`
+- `<project-knowledge-root>/knowledge/entity-aliases.md`
+- `<project-knowledge-root>/knowledge/project-taxonomy.md`
+- `<project-knowledge-root>/knowledge/source-map.md`
 
 这些文件用于理解术语、实体、分类和写作风格，但不能替代会议来源。
 
@@ -75,7 +75,7 @@
 - `风险/依赖`
 - `协作/责任`
 
-如果目标项目已经在 `project-config.yaml` / `project-taxonomy.md` 中定义了自己的领域分类，以项目级 taxonomy 为准，不要擅自切换，也不要把 vault 默认分类强行套到该项目。
+如果目标项目已经在 `project-config.yaml` / `project-taxonomy.md` 中定义了自己的领域分类，以项目级 taxonomy 为准，不要擅自切换，也不要把机制包模板或 portfolio/index 默认分类强行套到该项目。
 
 ## 状态建议
 

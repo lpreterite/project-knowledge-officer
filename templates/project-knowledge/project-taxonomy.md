@@ -1,12 +1,12 @@
 # Project Taxonomy
 
-用于记录本项目自己的分类体系。如果本项目使用的分类与 vault 默认 `Domain` 不同，在这里说明。
+用于记录本项目自己的分类体系。如果本项目使用的分类与机制包模板或 portfolio/index 默认 `Domain` 不同，在这里说明。
 
 执行规则：
 
 - `project-config.yaml` 中的 `domains` 是机器可检查的权威列表。
 - 本文件解释每个 Domain 的业务含义、边界和例子。
-- vault 级 taxonomy 只作为默认参考，不覆盖项目级 taxonomy。
+- 机制包模板和 portfolio/index taxonomy 只作为默认参考，不覆盖项目级 taxonomy。
 - 不同客户、行业或项目类型可以有不同 taxonomy。
 
 ## Domain 使用方式

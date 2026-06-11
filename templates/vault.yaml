@@ -1,4 +1,5 @@
 version: 1
+repository_role: "portfolio_index"
 profile: "minimal"
 language: "zh-CN"
 source_policy: "meeting_or_artifact_required"
@@ -13,5 +14,5 @@ domains:
   - "协作/责任"
 enabled_layers:
   domain_knowledge: false
-  global_registers: false
-
+  portfolio_index: true
+  global_fact_registers: false

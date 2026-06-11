@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Small scaffolding helper for file-based meeting knowledge vaults."""
+"""Small scaffolding helper for file-based meeting knowledge repositories."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import shutil
+import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Iterable
@@ -24,7 +27,229 @@ DOMAINS = [
 HELPER_ROOT = Path(__file__).resolve().parents[1]
 DOMAIN_TEMPLATE_ROOT = HELPER_ROOT / "domain"
 PROJECT_KNOWLEDGE_TEMPLATE_ROOT = HELPER_ROOT / "templates" / "project-knowledge"
+ARTIFACT_MANIFEST_TEMPLATE = HELPER_ROOT / "templates" / "artifact-manifest.yaml"
 PROFILES = {"minimal", "advanced"}
+MAX_DEFAULT_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
+RAW_ARTIFACT_SUFFIXES = {
+    ".3gp",
+    ".7z",
+    ".aac",
+    ".aiff",
+    ".avi",
+    ".flac",
+    ".gz",
+    ".m4a",
+    ".mkv",
+    ".mov",
+    ".mp3",
+    ".mp4",
+    ".ogg",
+    ".opus",
+    ".rar",
+    ".tar",
+    ".wav",
+    ".webm",
+    ".zip",
+}
+RAW_ARTIFACT_DIRS = {"artifacts", "inbox"}
+ARTIFACT_MANIFEST_REQUIRED_FIELDS = {
+    "filename",
+    "storage",
+    "path",
+    "size_bytes",
+    "sha256",
+    "received_datetime",
+    "source_note",
+    "access_note",
+    "git_policy",
+}
+ARTIFACT_GIT_POLICIES = {"committed", "ignored_external", "external_only", "local_only"}
+LOCAL_ARTIFACT_POLICIES = {"committed", "ignored_external", "local_only"}
+
+
+PROJECT_GITIGNORE = """# OS/editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Python/cache noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Raw or large meeting materials are not committed by default.
+# Keep controlled source links, hashes, or explicit small evidence files in Markdown/YAML.
+*.3gp
+*.7z
+*.aac
+*.aiff
+*.avi
+*.flac
+*.gz
+*.m4a
+*.mkv
+*.mov
+*.mp3
+*.mp4
+*.ogg
+*.opus
+*.rar
+*.tar
+*.wav
+*.webm
+*.zip
+"""
+
+
+def warn(message: str) -> None:
+    print(f"WARN: {message}", file=sys.stderr)
+
+
+def run_git(args: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            check=check,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError("git executable was not found") from error
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.strip() or error.stdout.strip() or str(error)
+        raise RuntimeError(detail) from error
+
+
+def is_git_repo(path: Path) -> bool:
+    try:
+        result = run_git(["rev-parse", "--is-inside-work-tree"], path, check=False)
+    except RuntimeError:
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+def init_git_repo(path: Path) -> bool:
+    path.mkdir(parents=True, exist_ok=True)
+    if is_git_repo(path):
+        return True
+    try:
+        result = run_git(["init", "-b", "main"], path, check=False)
+        if result.returncode != 0:
+            run_git(["init"], path)
+            run_git(["branch", "-M", "main"], path)
+    except RuntimeError as error:
+        warn(f"Could not initialize local Git repository at {path}: {error}")
+        return False
+    return True
+
+
+def git_has_changes(path: Path) -> bool:
+    try:
+        result = run_git(["status", "--short"], path)
+    except RuntimeError as error:
+        warn(f"Could not inspect Git status at {path}: {error}")
+        return False
+    return bool(result.stdout.strip())
+
+
+def git_changed_paths(path: Path) -> list[Path]:
+    try:
+        result = run_git(["status", "--short", "--untracked-files=all"], path)
+    except RuntimeError as error:
+        warn(f"Could not inspect Git status at {path}: {error}")
+        return []
+    changed: list[Path] = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        changed_path = line[3:].strip()
+        if " -> " in changed_path:
+            changed_path = changed_path.split(" -> ", 1)[1].strip()
+        changed.append(Path(changed_path))
+    return changed
+
+
+def is_portfolio_metadata_path(path: Path) -> bool:
+    allowed_global = {
+        Path("global/project-index.md"),
+        Path("global/access-boundaries.md"),
+        Path("global/sync-status.md"),
+    }
+    return (
+        path == Path("vault.yaml")
+        or path.parts[:1] in [( "domain", ), ( "archive", )]
+        or path in allowed_global
+    )
+
+
+def is_artifact_or_inbox_path(path: Path) -> bool:
+    return bool(RAW_ARTIFACT_DIRS.intersection(path.parts))
+
+
+def is_project_knowledge_path(path: Path) -> bool:
+    if path in {Path(".gitignore"), Path("project.md"), Path("project-config.yaml")}:
+        return True
+    if len(path.parts) == 2 and path.parts[0] in {"knowledge", "domain"} and path.suffix in {".md", ".yaml", ".yml"}:
+        return True
+    if len(path.parts) >= 3 and path.parts[0] == "meetings":
+        filename = path.name
+        if filename in {"metadata.yaml", "transcript.md", "analysis.md"}:
+            return True
+        if len(path.parts) >= 5 and path.parts[-2] == "artifacts" and filename == "manifest.yaml":
+            return True
+    return False
+
+
+def risky_artifact_paths(root: Path, paths: Iterable[Path]) -> list[Path]:
+    risky: list[Path] = []
+    for path in paths:
+        if not is_artifact_or_inbox_path(path):
+            continue
+        full_path = root / path
+        suffix = path.suffix.lower()
+        too_large = full_path.exists() and full_path.is_file() and full_path.stat().st_size > MAX_DEFAULT_ARTIFACT_SIZE_BYTES
+        if suffix in RAW_ARTIFACT_SUFFIXES or too_large:
+            risky.append(path)
+    return risky
+
+
+def repository_files(path: Path) -> set[Path]:
+    if not path.exists():
+        return set()
+    return {
+        item.relative_to(path)
+        for item in path.rglob("*")
+        if item.is_file() and ".git" not in item.relative_to(path).parts
+    }
+
+
+def commit_git_repo(path: Path, message: str, paths: Iterable[Path] | None = None) -> bool:
+    if not is_git_repo(path):
+        if not init_git_repo(path):
+            return False
+    if not git_has_changes(path):
+        return False
+    selected_paths = [str(item) for item in paths] if paths is not None else []
+    try:
+        if paths is not None:
+            if not selected_paths:
+                return False
+            run_git(["add", "--", *selected_paths], path)
+        else:
+            run_git(["add", "."], path)
+        diff_result = run_git(["diff", "--cached", "--quiet"], path, check=False)
+        if diff_result.returncode == 0:
+            return False
+        run_git(["commit", "-m", message], path)
+    except RuntimeError as error:
+        warn(f"Could not create local Git commit at {path}: {error}")
+        return False
+    return True
 
 
 def write_if_missing(path: Path, content: str) -> None:
@@ -55,6 +280,7 @@ def make_yaml_list(values: Iterable[str], indent: int = 2) -> str:
 def make_vault_config(profile: str) -> str:
     advanced = "true" if profile == "advanced" else "false"
     return f"""version: 1
+repository_role: "portfolio_index"
 profile: "{profile}"
 language: "zh-CN"
 source_policy: "meeting_or_artifact_required"
@@ -63,7 +289,8 @@ domains:
 {make_yaml_list(DOMAINS)}
 enabled_layers:
   domain_knowledge: {advanced}
-  global_registers: {advanced}
+  portfolio_index: true
+  global_fact_registers: false
 """
 
 
@@ -74,8 +301,18 @@ def make_project_config(profile: str, domains: list[str] | None = None) -> str:
     if profile == "advanced":
         advanced_required = '  - "by-domain.md"\n  - "domain-context.md"\n  - "entity-aliases.md"\n  - "project-taxonomy.md"\n  - "source-map.md"\n'
     return f"""version: 1
+repository_role: "project_knowledge"
 profile: "{profile}"
 language: "zh-CN"
+# 项目级 taxonomy 是执行时的权威来源。portfolio/index vault 的 vault.yaml 只作为批量创建项目时的默认值。
+collaboration_scope: "project_participants_only"
+remote_policy: "explicit_when_collaboration_requires"
+cross_project_references: "explicit_source_and_confirmation_required"
+artifact_git_policy:
+  markdown_yaml_default: "commit"
+  raw_media_default: "external_or_explicit"
+  large_binary_default: "external_or_explicit"
+  max_default_artifact_size_mb: 25
 domains:
 {make_yaml_list(selected_domains)}
 required_current_files:
@@ -138,8 +375,60 @@ def project_profile(project_root: Path, fallback: str) -> str:
     return parse_scalar_config(project_root / "project-config.yaml", "profile", fallback)
 
 
-def init_vault(vault_root: Path, profile: str) -> None:
+def nearest_existing_parent(path: Path) -> Path:
+    current = path
+    while not current.exists() and current.parent != current:
+        current = current.parent
+    return current
+
+
+def has_mechanism_package_marker(path: Path) -> bool:
+    return (path / "AGENTS.md").exists() and (path / "scripts/meeting_helpers.py").exists()
+
+
+def is_inside_legacy_projects_dir(path: Path, ancestor: Path) -> bool:
+    try:
+        relative = path.relative_to(ancestor)
+    except ValueError:
+        return False
+    return len(relative.parts) >= 2 and relative.parts[0] == "projects"
+
+
+def ensure_project_root_boundary(project_root: Path, adopt_existing: bool = False) -> None:
+    if adopt_existing:
+        return
+    existing_parent = nearest_existing_parent(project_root)
+    if is_git_repo(existing_parent):
+        raise SystemExit(
+            f"Refusing to initialize project knowledge repo inside existing Git worktree: {existing_parent}. "
+            "Use an independent directory, or pass --adopt-existing only after confirming the boundary."
+        )
+    for ancestor in [project_root, *project_root.parents]:
+        if has_mechanism_package_marker(ancestor):
+            raise SystemExit(f"Refusing to initialize real project knowledge inside mechanism package: {ancestor}")
+        if (ancestor / "vault.yaml").exists() and is_inside_legacy_projects_dir(project_root, ancestor):
+            raise SystemExit(
+                f"Refusing to initialize project knowledge inside legacy/portfolio vault projects/: {ancestor}. "
+                "Use migrate-project --dry-run or the explicit legacy flow."
+            )
+        if ancestor != project_root and (ancestor / "project-config.yaml").exists() and (ancestor / "project.md").exists():
+            raise SystemExit(f"Refusing to initialize nested project knowledge repo inside existing project root: {ancestor}")
+
+
+def project_id_from_root(project_root: Path) -> str:
+    project_md = read_text(project_root / "project.md")
+    for line in project_md.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- Project ID:"):
+            value = stripped.split(":", 1)[1].strip()
+            if value and value != "unknown":
+                return value
+    return project_root.name
+
+
+def init_vault(vault_root: Path, profile: str, initialize_git: bool = True, initial_commit: bool = True) -> None:
     ensure_profile(profile)
+    existing_files = repository_files(vault_root)
     for rel in [
         "inbox",
         "projects",
@@ -155,13 +444,22 @@ def init_vault(vault_root: Path, profile: str) -> None:
         copy_templates(DOMAIN_TEMPLATE_ROOT, vault_root / "domain")
 
         write_if_missing(
-            vault_root / "global/current-summary.md",
-            "# 全局当前摘要\n\n## 快照\n\n- 当前状态：draft\n- 最近更新：unknown\n\n",
+            vault_root / "global/project-index.md",
+            "# Project Index\n\n| Project | Knowledge Repository | Sharing Boundary | Status | Notes |\n| --- | --- | --- | --- | --- |\n",
         )
-        write_if_missing(vault_root / "global/decision-register.md", "# Decision Register\n\n")
-        write_if_missing(vault_root / "global/open-question-register.md", "# Open Question Register\n\n")
-        write_if_missing(vault_root / "global/todo-register.md", "# Todo Register\n\n")
-        write_if_missing(vault_root / "global/timeline.md", "# Global Timeline\n\n")
+        write_if_missing(
+            vault_root / "global/access-boundaries.md",
+            "# Access Boundaries\n\n此文件记录项目 knowledge 仓库的访问边界和协作范围，不复制项目事实结论。\n\n",
+        )
+        write_if_missing(
+            vault_root / "global/sync-status.md",
+            "# Sync Status\n\n| Project | Local Path | Remote | Last Sync | Notes |\n| --- | --- | --- | --- | --- |\n",
+        )
+    if initialize_git:
+        init_git_repo(vault_root)
+        if initial_commit:
+            generated_files = repository_files(vault_root) - existing_files
+            commit_git_repo(vault_root, "Initialize portfolio knowledge index", generated_files)
 
 
 def ensure_profile(profile: str) -> None:
@@ -169,15 +467,29 @@ def ensure_profile(profile: str) -> None:
         raise SystemExit(f"Unknown profile: {profile}. Expected one of: {', '.join(sorted(PROFILES))}")
 
 
-def new_project(vault_root: Path, project_id: str, name: str, profile: str | None) -> None:
-    selected_profile = profile or vault_profile(vault_root)
-    ensure_profile(selected_profile)
-    init_vault(vault_root, selected_profile)
-    project_root = vault_root / "projects" / project_id
+def init_project_root(
+    project_root: Path,
+    project_id: str,
+    name: str,
+    profile: str,
+    domains: list[str] | None = None,
+    include_repository_dirs: bool = True,
+    initialize_git: bool = True,
+    initial_commit: bool = True,
+    adopt_existing: bool = False,
+) -> None:
+    ensure_profile(profile)
+    ensure_project_root_boundary(project_root, adopt_existing=adopt_existing)
+    existing_files = repository_files(project_root)
+    selected_domains = domains or DOMAINS
     knowledge_root = project_root / "knowledge"
-    project_root.mkdir(parents=True, exist_ok=True)
-    (project_root / "meetings").mkdir(parents=True, exist_ok=True)
+    project_dirs = ["meetings"]
+    if include_repository_dirs:
+        project_dirs.extend(["inbox", "archive/superseded"])
+    for rel in project_dirs:
+        (project_root / rel).mkdir(parents=True, exist_ok=True)
     knowledge_root.mkdir(parents=True, exist_ok=True)
+    write_if_missing(project_root / ".gitignore", PROJECT_GITIGNORE)
 
     write_if_missing(
         project_root / "project.md",
@@ -205,6 +517,13 @@ def new_project(vault_root: Path, project_id: str, name: str, profile: str | Non
 | --- | --- | --- |
 | unknown | unknown | unknown |
 
+## 协作与共享边界
+
+- 默认共享范围：仅本项目参与者。
+- 访问边界：由本项目 knowledge 仓库的本地/远端访问权限决定，不存在隐式全局共享。
+- 跨项目引用：必须保留明确来源链接，并经用户确认后才可进入另一个项目的当前结论。
+- 远端策略：只有多人协作、同步、备份或审计需要时才配置 remote 或 push。
+
 ## 当前范围
 
 - unknown
@@ -218,7 +537,7 @@ def new_project(vault_root: Path, project_id: str, name: str, profile: str | Non
 - unknown
 """,
     )
-    write_if_missing(project_root / "project-config.yaml", make_project_config(selected_profile, parse_domains(vault_root / "vault.yaml")))
+    write_if_missing(project_root / "project-config.yaml", make_project_config(profile, selected_domains))
 
     write_if_missing(
         knowledge_root / "current-summary.md",
@@ -228,9 +547,34 @@ def new_project(vault_root: Path, project_id: str, name: str, profile: str | Non
     write_if_missing(knowledge_root / "current-open-questions.md", "# 当前未决事项\n\n")
     write_if_missing(knowledge_root / "current-todos.md", "# 当前 Todo\n\n")
     write_if_missing(knowledge_root / "timeline.md", "# Timeline\n\n")
-    if selected_profile == "advanced":
-        write_if_missing(knowledge_root / "by-domain.md", make_by_domain_template(parse_domains(project_root / "project-config.yaml")))
+    if profile == "advanced":
+        (project_root / "domain").mkdir(parents=True, exist_ok=True)
+        copy_templates(DOMAIN_TEMPLATE_ROOT, project_root / "domain")
+        write_if_missing(knowledge_root / "by-domain.md", make_by_domain_template(selected_domains))
         copy_templates(PROJECT_KNOWLEDGE_TEMPLATE_ROOT, knowledge_root)
+    if initialize_git:
+        init_git_repo(project_root)
+        if initial_commit:
+            generated_files = repository_files(project_root) - existing_files
+            commit_git_repo(project_root, f"Initialize {project_id} knowledge repository", generated_files)
+
+
+def new_project(vault_root: Path, project_id: str, name: str, profile: str | None) -> None:
+    selected_profile = profile or vault_profile(vault_root)
+    ensure_profile(selected_profile)
+    init_vault(vault_root, selected_profile, initial_commit=False)
+    project_root = vault_root / "projects" / project_id
+    init_project_root(
+        project_root,
+        project_id,
+        name,
+        selected_profile,
+        parse_domains(vault_root / "vault.yaml"),
+        include_repository_dirs=False,
+        initialize_git=False,
+        initial_commit=False,
+        adopt_existing=True,
+    )
 
 
 def make_by_domain_template(domains: list[str] | None = None) -> str:
@@ -289,13 +633,12 @@ def is_placeholder_by_domain(path: Path) -> bool:
     return True
 
 
-def set_project_domains(vault_root: Path, project_id: str, domains: list[str]) -> None:
+def set_project_root_domains(project_root: Path, domains: list[str]) -> None:
     if not domains:
         raise SystemExit("At least one domain is required")
-    project_root = vault_root / "projects" / project_id
     if not project_root.exists():
-        raise SystemExit(f"Project does not exist: {project_id}")
-    profile = project_profile(project_root, vault_profile(vault_root))
+        raise SystemExit(f"Project does not exist: {project_root}")
+    profile = project_profile(project_root, "minimal")
     write_project_config(project_root, profile, domains)
     taxonomy_path = project_root / "knowledge" / "project-taxonomy.md"
     if taxonomy_path.exists():
@@ -316,23 +659,26 @@ def set_project_domains(vault_root: Path, project_id: str, domains: list[str]) -
             append_missing_domain_sections(by_domain_path, domains)
 
 
+def set_project_domains(vault_root: Path, project_id: str, domains: list[str]) -> None:
+    set_project_root_domains(vault_root / "projects" / project_id, domains)
+
+
 def sanitize_part(value: str) -> str:
     cleaned = value.strip().replace("/", "-").replace("\\", "-")
     cleaned = "-".join(cleaned.split())
     return cleaned or "unknown"
 
 
-def new_meeting(
-    vault_root: Path,
+def new_meeting_in_project(
+    project_root: Path,
     project_id: str,
     meeting_date: str,
     location: str,
     topic: str,
     transcript: Path | None,
 ) -> Path:
-    project_root = vault_root / "projects" / project_id
     if not project_root.exists():
-        raise SystemExit(f"Project does not exist: {project_id}")
+        raise SystemExit(f"Project does not exist: {project_root}")
 
     location_part = sanitize_part(location)
     topic_part = sanitize_part(topic)
@@ -370,7 +716,26 @@ notes: ""
         )
 
     write_if_missing(meeting_root / "analysis.md", "# 会议分析\n\n")
+    copy_template_if_missing(ARTIFACT_MANIFEST_TEMPLATE, artifacts_root / "manifest.yaml")
     return meeting_root
+
+
+def new_meeting(
+    vault_root: Path,
+    project_id: str,
+    meeting_date: str,
+    location: str,
+    topic: str,
+    transcript: Path | None,
+) -> Path:
+    return new_meeting_in_project(
+        vault_root / "projects" / project_id,
+        project_id,
+        meeting_date,
+        location,
+        topic,
+        transcript,
+    )
 
 
 class ValidationResult:
@@ -429,13 +794,136 @@ def validate_sources(path: Path, result: ValidationResult) -> None:
         result.warn(f"{path}: contains placeholder source or unknown values")
 
 
-def validate_meeting(meeting_root: Path, result: ValidationResult) -> None:
+def parse_simple_yaml_value(value: str) -> str | int | list[str]:
+    stripped = value.strip()
+    if stripped == "[]":
+        return []
+    if stripped.startswith(("\"", "'")) and stripped.endswith(("\"", "'")) and len(stripped) >= 2:
+        return stripped[1:-1]
+    if stripped.isdigit():
+        return int(stripped)
+    return stripped
+
+
+def parse_artifact_manifest(path: Path, result: ValidationResult) -> list[dict[str, str | int]]:
+    if not path.exists():
+        return []
+    artifacts_seen = False
+    artifacts_inline_empty = False
+    entries: list[dict[str, str | int]] = []
+    current: dict[str, str | int] | None = None
+
+    for line_number, line in enumerate(read_text(path).splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("artifacts:"):
+            artifacts_seen = True
+            value = stripped.split(":", 1)[1].strip()
+            artifacts_inline_empty = value == "[]"
+            if value and value != "[]":
+                result.error(f"{path}:{line_number}: artifacts must be a list")
+            continue
+        if not artifacts_seen or artifacts_inline_empty:
+            continue
+        if not line.startswith(" "):
+            current = None
+            continue
+        if stripped.startswith("- "):
+            current = {}
+            entries.append(current)
+            rest = stripped[2:].strip()
+            if rest:
+                if ":" not in rest:
+                    result.error(f"{path}:{line_number}: malformed artifact entry")
+                    continue
+                key, value = rest.split(":", 1)
+                current[key.strip()] = parse_simple_yaml_value(value)
+            continue
+        if current is None:
+            result.error(f"{path}:{line_number}: artifact field without list item")
+            continue
+        if ":" not in stripped:
+            result.error(f"{path}:{line_number}: malformed artifact field")
+            continue
+        key, value = stripped.split(":", 1)
+        current[key.strip()] = parse_simple_yaml_value(value)
+
+    if not artifacts_seen:
+        result.error(f"{path}: missing artifacts list")
+    return entries
+
+
+def validate_artifact_manifest(
+    artifact_manifest: Path,
+    artifacts_root: Path,
+    result: ValidationResult,
+    strict_hashes: bool = False,
+) -> None:
+    entries = parse_artifact_manifest(artifact_manifest, result)
+    filenames: set[str] = set()
+    for index, entry in enumerate(entries, start=1):
+        missing_fields = ARTIFACT_MANIFEST_REQUIRED_FIELDS - set(entry)
+        for field in sorted(missing_fields):
+            result.error(f"{artifact_manifest}: artifact entry {index} missing {field}")
+        filename = entry.get("filename")
+        if isinstance(filename, str):
+            if filename in filenames:
+                result.error(f"{artifact_manifest}: duplicate artifact filename {filename}")
+            filenames.add(filename)
+        sha256 = entry.get("sha256")
+        if isinstance(sha256, str):
+            valid_hash = len(sha256) == 64 and all(char in "0123456789abcdefABCDEF" for char in sha256)
+            if sha256 == "pending":
+                if strict_hashes:
+                    result.error(f"{artifact_manifest}: artifact entry {index} has pending sha256")
+                else:
+                    result.warn(f"{artifact_manifest}: artifact entry {index} has pending sha256")
+            elif not valid_hash:
+                result.error(f"{artifact_manifest}: artifact entry {index} has invalid sha256")
+        size_bytes = entry.get("size_bytes")
+        if not isinstance(size_bytes, int):
+            result.error(f"{artifact_manifest}: artifact entry {index} size_bytes must be an integer")
+        git_policy = entry.get("git_policy")
+        if isinstance(git_policy, str) and git_policy not in ARTIFACT_GIT_POLICIES:
+            result.error(f"{artifact_manifest}: artifact entry {index} has invalid git_policy '{git_policy}'")
+        artifact_path = entry.get("path")
+        local_path: Path | None = None
+        if isinstance(artifact_path, str):
+            relative_path = Path(artifact_path)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                result.error(f"{artifact_manifest}: artifact entry {index} path must be relative to the meeting directory")
+            else:
+                local_path = artifact_manifest.parents[1] / relative_path
+        if strict_hashes and isinstance(git_policy, str) and git_policy in LOCAL_ARTIFACT_POLICIES:
+            if local_path is None or not local_path.exists():
+                result.error(f"{artifact_manifest}: artifact entry {index} local file is missing for git_policy {git_policy}")
+            elif local_path.is_file():
+                if isinstance(size_bytes, int) and local_path.stat().st_size != size_bytes:
+                    result.error(f"{artifact_manifest}: artifact entry {index} size_bytes does not match {artifact_path}")
+                if isinstance(sha256, str) and sha256 != "pending":
+                    digest = hashlib.sha256(local_path.read_bytes()).hexdigest()
+                    if digest.lower() != sha256.lower():
+                        result.error(f"{artifact_manifest}: artifact entry {index} sha256 does not match {artifact_path}")
+
+    artifact_files = []
+    if artifacts_root.exists():
+        artifact_files = sorted(path for path in artifacts_root.iterdir() if path.is_file() and path.name != "manifest.yaml")
+    for artifact in artifact_files:
+        if artifact.name not in filenames:
+            result.error(f"{artifact_manifest}: missing manifest entry for {artifact.name}")
+
+
+def validate_meeting(meeting_root: Path, result: ValidationResult, strict_artifact_hashes: bool = False) -> None:
     metadata = meeting_root / "metadata.yaml"
     transcript = meeting_root / "transcript.md"
     analysis = meeting_root / "analysis.md"
+    artifacts_root = meeting_root / "artifacts"
+    artifact_manifest = artifacts_root / "manifest.yaml"
     validate_required(metadata, result)
     validate_required(transcript, result)
     validate_required(analysis, result)
+    validate_required(artifact_manifest, result)
     metadata_text = read_text(metadata)
     for key in ["project_id:", "meeting_id:", "meeting_datetime:", "time_confidence:"]:
         if key not in metadata_text:
@@ -445,22 +933,48 @@ def validate_meeting(meeting_root: Path, result: ValidationResult) -> None:
     if "received_datetime:" in metadata_text and "meeting_datetime:" in metadata_text:
         # Guardrail only: received_datetime is allowed, but should not be the only useful date.
         pass
+    validate_artifact_manifest(artifact_manifest, artifacts_root, result, strict_hashes=strict_artifact_hashes)
 
 
-def validate_project(vault_root: Path, project_id: str) -> ValidationResult:
+def validate_project_root(
+    project_root: Path,
+    fallback_profile: str = "minimal",
+    require_repository_dirs: bool = True,
+    strict_artifact_hashes: bool = False,
+) -> ValidationResult:
     result = ValidationResult()
-    project_root = vault_root / "projects" / project_id
     if not project_root.exists():
-        result.error(f"Project does not exist: {project_id}")
+        result.error(f"Project does not exist: {project_root}")
         return result
 
-    fallback_profile = vault_profile(vault_root)
     profile = project_profile(project_root, fallback_profile)
-    allowed_domains = set(parse_domains(project_root / "project-config.yaml") or parse_domains(vault_root / "vault.yaml"))
+    allowed_domains = set(parse_domains(project_root / "project-config.yaml"))
     knowledge_root = project_root / "knowledge"
 
+    if require_repository_dirs:
+        validate_required(project_root / "inbox", result)
+        validate_required(project_root / "archive", result)
     validate_required(project_root / "project.md", result)
     validate_required(project_root / "project-config.yaml", result)
+    project_text = read_text(project_root / "project.md")
+    if "## 协作与共享边界" not in project_text:
+        result.error(f"{project_root / 'project.md'}: missing 协作与共享边界 section")
+    config_text = read_text(project_root / "project-config.yaml")
+    for key in [
+        "repository_role:",
+        "collaboration_scope:",
+        "remote_policy:",
+        "cross_project_references:",
+        "artifact_git_policy:",
+        "raw_media_default:",
+        "large_binary_default:",
+        "max_default_artifact_size_mb:",
+    ]:
+        if key not in config_text:
+            result.error(f"{project_root / 'project-config.yaml'}: missing {key}")
+    repository_role = parse_scalar_config(project_root / "project-config.yaml", "repository_role", "")
+    if repository_role != "project_knowledge":
+        result.error(f"{project_root / 'project-config.yaml'}: repository_role must be project_knowledge")
     for filename in [
         "current-summary.md",
         "current-decisions.md",
@@ -471,6 +985,14 @@ def validate_project(vault_root: Path, project_id: str) -> ValidationResult:
         validate_required(knowledge_root / filename, result)
 
     if profile == "advanced":
+        for filename in [
+            "glossary.md",
+            "taxonomy.md",
+            "entity-registry.md",
+            "decision-types.md",
+            "writing-style.md",
+        ]:
+            validate_required(project_root / "domain" / filename, result)
         for filename in [
             "by-domain.md",
             "domain-context.md",
@@ -492,10 +1014,18 @@ def validate_project(vault_root: Path, project_id: str) -> ValidationResult:
     meetings_root = project_root / "meetings"
     if meetings_root.exists():
         for meeting_dir in sorted(path for path in meetings_root.glob("*/*") if path.is_dir()):
-            validate_meeting(meeting_dir, result)
+            validate_meeting(meeting_dir, result, strict_artifact_hashes=strict_artifact_hashes)
             validate_markdown_domains(meeting_dir / "analysis.md", allowed_domains, result)
             validate_sources(meeting_dir / "analysis.md", result)
     return result
+
+
+def validate_project(vault_root: Path, project_id: str) -> ValidationResult:
+    return validate_project_root(
+        vault_root / "projects" / project_id,
+        vault_profile(vault_root),
+        require_repository_dirs=False,
+    )
 
 
 def validate_vault(vault_root: Path) -> ValidationResult:
@@ -514,10 +1044,9 @@ def validate_vault(vault_root: Path) -> ValidationResult:
             "writing-style.md",
         ]:
             validate_required(vault_root / "domain" / filename, result)
-        validate_required(vault_root / "global/current-summary.md", result)
-        validate_required(vault_root / "global/decision-register.md", result)
-        validate_required(vault_root / "global/open-question-register.md", result)
-        validate_required(vault_root / "global/todo-register.md", result)
+        validate_required(vault_root / "global/project-index.md", result)
+        validate_required(vault_root / "global/access-boundaries.md", result)
+        validate_required(vault_root / "global/sync-status.md", result)
 
     projects_root = vault_root / "projects"
     if projects_root.exists():
@@ -528,69 +1057,319 @@ def validate_vault(vault_root: Path) -> ValidationResult:
     return result
 
 
+def migrate_project_dry_run(vault_root: Path, project_id: str, project_root: Path) -> None:
+    source_root = vault_root / "projects" / project_id
+    if not source_root.exists():
+        raise SystemExit(f"Project does not exist in legacy/portfolio vault: {project_id}")
+    print(f"DRY RUN: migrate {source_root} -> {project_root}")
+    print("Planned copy scope:")
+    for item in sorted(repository_files(source_root)):
+        print(f"- {item}")
+
+    result = validate_project(vault_root, project_id)
+    if result.errors:
+        print("Validation issues to fix before migration:")
+        result.print()
+    else:
+        print("Source project validation: OK")
+
+    legacy_global_paths = [
+        vault_root / "global/decision-register.md",
+        vault_root / "global/open-question-register.md",
+        vault_root / "global/todo-register.md",
+        vault_root / "global/current-summary.md",
+        vault_root / "global/timeline.md",
+    ]
+    existing_global_paths = [path for path in legacy_global_paths if path.exists()]
+    if existing_global_paths:
+        print("WARN: legacy global fact files exist. Review dependencies before splitting:")
+        for path in existing_global_paths:
+            print(f"- {path.relative_to(vault_root)}")
+
+    print("Next manual steps:")
+    print("1. Create the target project knowledge repo with --project-root init-project, or copy this project into an empty target root.")
+    print("2. Copy only this project's files; do not copy sibling projects or global fact registers.")
+    print("3. Ensure project.md collaboration boundary and project-config artifact/collaboration fields are present.")
+    print("4. Run --project-root validate-project.")
+    print("5. Create a local baseline commit in the new project repo.")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Meeting knowledge vault scaffolding helper.")
-    parser.add_argument("--vault-root", required=True, type=Path)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Meeting knowledge repository scaffolding helper. "
+            "Default new-project workflow: use --project-root init-project. "
+            "--vault-root commands are for portfolio/index or legacy vaults."
+        )
+    )
+    root_group = parser.add_mutually_exclusive_group()
+    root_group.add_argument("--project-root", type=Path, help="Root of one project's knowledge repository.")
+    root_group.add_argument("--vault-root", type=Path, help="Root of a portfolio/index or legacy vault.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_parser = subparsers.add_parser("init-vault")
-    init_parser.add_argument("--profile", choices=sorted(PROFILES), default="minimal")
+    init_project_parser = subparsers.add_parser(
+        "init-project",
+        help="Initialize one project's knowledge repository. Default for new projects.",
+        description="Initialize one project's knowledge repository. This is the default entry point for new projects.",
+    )
+    init_project_parser.add_argument("--project-id")
+    init_project_parser.add_argument("--name")
+    init_project_parser.add_argument("--profile", choices=sorted(PROFILES), default="minimal")
+    init_project_parser.add_argument("--no-git", action="store_true", help="Create files without initializing local Git.")
+    init_project_parser.add_argument("--no-initial-commit", action="store_true", help="Initialize Git without creating the baseline commit.")
+    init_project_parser.add_argument(
+        "--adopt-existing",
+        action="store_true",
+        help="Allow initializing in an existing Git worktree or boundary after explicit confirmation.",
+    )
 
-    project_parser = subparsers.add_parser("new-project")
+    init_parser = subparsers.add_parser(
+        "init-vault",
+        help="Initialize a portfolio/index or legacy vault. Not the default new-project path.",
+        description="Initialize a portfolio/index or legacy vault. Use only for cross-project indexes or legacy structures.",
+    )
+    init_parser.add_argument("--profile", choices=sorted(PROFILES), default="minimal")
+    init_parser.add_argument("--no-git", action="store_true", help="Create files without initializing local Git.")
+    init_parser.add_argument("--no-initial-commit", action="store_true", help="Initialize Git without creating the baseline commit.")
+
+    project_parser = subparsers.add_parser(
+        "new-project",
+        help="Create a project inside a portfolio/index or legacy vault. Prefer --project-root init-project for new projects.",
+        description="Create a project inside a portfolio/index or legacy vault. Prefer --project-root init-project for new projects.",
+    )
     project_parser.add_argument("project_id")
     project_parser.add_argument("--name", required=True)
     project_parser.add_argument("--profile", choices=sorted(PROFILES))
 
-    meeting_parser = subparsers.add_parser("new-meeting")
-    meeting_parser.add_argument("project_id")
+    meeting_parser = subparsers.add_parser(
+        "new-meeting",
+        help="Create a meeting directory. Use --project-root by default; --vault-root is legacy/portfolio only.",
+    )
+    meeting_parser.add_argument("project_id", nargs="?")
     meeting_parser.add_argument("--date", required=True)
     meeting_parser.add_argument("--location", required=True)
     meeting_parser.add_argument("--topic", required=True)
     meeting_parser.add_argument("--transcript", type=Path)
 
-    validate_project_parser = subparsers.add_parser("validate-project")
-    validate_project_parser.add_argument("project_id")
+    validate_project_parser = subparsers.add_parser(
+        "validate-project",
+        help="Validate one project knowledge repository, or a project inside a legacy/portfolio vault.",
+    )
+    validate_project_parser.add_argument("project_id", nargs="?")
 
-    subparsers.add_parser("validate-vault")
+    subparsers.add_parser(
+        "validate-vault",
+        help="Validate a portfolio/index or legacy vault.",
+    )
 
-    domains_parser = subparsers.add_parser("set-project-domains")
+    domains_parser = subparsers.add_parser(
+        "set-project-domains",
+        help="Set domains for a project inside a portfolio/index or legacy vault.",
+    )
     domains_parser.add_argument("project_id")
     domains_parser.add_argument("domains", nargs="+")
+
+    project_domains_parser = subparsers.add_parser(
+        "set-domains",
+        help="Set domains for one project knowledge repository. Default for new projects.",
+    )
+    project_domains_parser.add_argument("domains", nargs="+")
+
+    commit_parser = subparsers.add_parser(
+        "commit",
+        help="Validate and create a local commit. Use --project-root by default; --vault-root is legacy/portfolio only.",
+    )
+    commit_parser.add_argument("-m", "--message", required=True)
+    commit_parser.add_argument(
+        "--allow-invalid",
+        action="store_true",
+        help="Commit without running validation. Use only for explicit WIP or migration checkpoints.",
+    )
+    commit_parser.add_argument(
+        "--legacy-fact-vault",
+        action="store_true",
+        help="Allow --vault-root commit to include projects/* facts or global fact registers. Use only for explicit legacy/special-case vault maintenance.",
+    )
+    commit_parser.add_argument(
+        "--include-artifacts",
+        action="store_true",
+        help="Allow committing raw or large inbox/artifact files. Use only after confirming the project artifact Git policy.",
+    )
+    commit_parser.add_argument(
+        "--allow-pending-artifacts",
+        action="store_true",
+        help="Allow committing artifact manifest entries with sha256: pending. Use only for explicit incomplete checkpoints.",
+    )
+    commit_parser.add_argument(
+        "--include-extra",
+        action="store_true",
+        help="Allow committing paths outside the validated knowledge surface. Use only after explicit user confirmation.",
+    )
+
+    migrate_parser = subparsers.add_parser(
+        "migrate-project",
+        help="Dry-run checks for splitting one legacy vault project into its own project knowledge repository.",
+    )
+    migrate_parser.add_argument("project_id")
+    migrate_parser.add_argument("--target-project-root", required=True, type=Path)
+    migrate_parser.add_argument("--dry-run", action="store_true", required=True)
 
     return parser
 
 
+def resolve_required_root(root: Path | None, name: str) -> Path:
+    if root is None:
+        raise SystemExit(f"{name} is required for this command")
+    return root.expanduser().resolve()
+
+
 def main() -> None:
     args = build_parser().parse_args()
-    vault_root = args.vault_root.expanduser().resolve()
 
-    if args.command == "init-vault":
-        init_vault(vault_root, args.profile)
+    if args.command == "init-project":
+        project_root = resolve_required_root(args.project_root, "--project-root")
+        project_id = args.project_id or project_root.name
+        name = args.name or project_id
+        init_project_root(
+            project_root,
+            project_id,
+            name,
+            args.profile,
+            initialize_git=not args.no_git,
+            initial_commit=not args.no_initial_commit,
+            adopt_existing=args.adopt_existing,
+        )
+        print(project_root)
+    elif args.command == "init-vault":
+        vault_root = resolve_required_root(args.vault_root, "--vault-root")
+        init_vault(
+            vault_root,
+            args.profile,
+            initialize_git=not args.no_git,
+            initial_commit=not args.no_initial_commit,
+        )
         print(vault_root)
     elif args.command == "new-project":
+        vault_root = resolve_required_root(args.vault_root, "--vault-root")
         new_project(vault_root, args.project_id, args.name, args.profile)
         print(vault_root / "projects" / args.project_id)
     elif args.command == "new-meeting":
-        meeting_root = new_meeting(
-            vault_root,
-            args.project_id,
-            args.date,
-            args.location,
-            args.topic,
-            args.transcript.expanduser().resolve() if args.transcript else None,
-        )
+        transcript = args.transcript.expanduser().resolve() if args.transcript else None
+        if args.project_root:
+            project_root = args.project_root.expanduser().resolve()
+            project_id = args.project_id or project_id_from_root(project_root)
+            meeting_root = new_meeting_in_project(
+                project_root,
+                project_id,
+                args.date,
+                args.location,
+                args.topic,
+                transcript,
+            )
+        else:
+            vault_root = resolve_required_root(args.vault_root, "--vault-root")
+            if not args.project_id:
+                raise SystemExit("project_id is required when using --vault-root")
+            meeting_root = new_meeting(
+                vault_root,
+                args.project_id,
+                args.date,
+                args.location,
+                args.topic,
+                transcript,
+            )
         print(meeting_root)
     elif args.command == "validate-project":
-        result = validate_project(vault_root, args.project_id)
+        if args.project_root:
+            result = validate_project_root(args.project_root.expanduser().resolve())
+        else:
+            vault_root = resolve_required_root(args.vault_root, "--vault-root")
+            if not args.project_id:
+                raise SystemExit("project_id is required when using --vault-root")
+            result = validate_project(vault_root, args.project_id)
         result.print()
         raise SystemExit(1 if result.errors else 0)
     elif args.command == "validate-vault":
+        vault_root = resolve_required_root(args.vault_root, "--vault-root")
         result = validate_vault(vault_root)
         result.print()
         raise SystemExit(1 if result.errors else 0)
     elif args.command == "set-project-domains":
+        vault_root = resolve_required_root(args.vault_root, "--vault-root")
         set_project_domains(vault_root, args.project_id, args.domains)
         print(vault_root / "projects" / args.project_id / "project-config.yaml")
+    elif args.command == "set-domains":
+        project_root = resolve_required_root(args.project_root, "--project-root")
+        set_project_root_domains(project_root, args.domains)
+        print(project_root / "project-config.yaml")
+    elif args.command == "commit":
+        if args.project_root:
+            repo_root = args.project_root.expanduser().resolve()
+            if not args.allow_invalid:
+                result = validate_project_root(
+                    repo_root,
+                    strict_artifact_hashes=not args.allow_pending_artifacts,
+                )
+                result.print()
+                if result.errors:
+                    raise SystemExit(1)
+            changed_paths = git_changed_paths(repo_root)
+            risky_paths = risky_artifact_paths(repo_root, changed_paths)
+            if risky_paths and not args.include_artifacts:
+                print(
+                    "ERROR: refusing to commit raw or large inbox/artifact files by default. "
+                    "Store controlled source links/hashes instead, or pass --include-artifacts only after confirming the project artifact Git policy."
+                )
+                for path in risky_paths:
+                    print(f"ERROR: risky artifact path: {path}")
+                raise SystemExit(1)
+            allowed_paths = [path for path in changed_paths if is_project_knowledge_path(path)]
+            if args.include_artifacts:
+                allowed_paths.extend(path for path in changed_paths if is_artifact_or_inbox_path(path))
+            unknown_paths = sorted(set(changed_paths) - set(allowed_paths))
+            if unknown_paths and not args.include_extra:
+                print(
+                    "ERROR: refusing to commit paths outside the validated knowledge surface. "
+                    "Move them into a controlled meeting/knowledge path, register artifacts in manifest, "
+                    "or pass --include-extra only after explicit user confirmation."
+                )
+                for path in unknown_paths:
+                    print(f"ERROR: unknown path: {path}")
+                raise SystemExit(1)
+            project_commit_paths = changed_paths if args.include_extra else allowed_paths
+        elif args.vault_root:
+            repo_root = args.vault_root.expanduser().resolve()
+            if not args.allow_invalid:
+                result = validate_vault(repo_root)
+                result.print()
+                if result.errors:
+                    raise SystemExit(1)
+            changed_paths = git_changed_paths(repo_root)
+            risky_paths = [path for path in changed_paths if not is_portfolio_metadata_path(path)]
+            if risky_paths and not args.legacy_fact_vault:
+                print(
+                    "ERROR: --vault-root commit is limited to portfolio/index metadata by default. "
+                    "Use --project-root commit for project knowledge repositories, or pass "
+                    "--legacy-fact-vault only when explicitly maintaining a legacy/special-case fact vault."
+                )
+                for path in risky_paths:
+                    print(f"ERROR: refusing to commit non-portfolio path: {path}")
+                raise SystemExit(1)
+        else:
+            repo_root = resolve_required_root(None, "--project-root or --vault-root")
+        did_commit = commit_git_repo(
+            repo_root,
+            args.message,
+            project_commit_paths if args.project_root else None,
+        )
+        print("Committed" if did_commit else "No changes to commit")
+    elif args.command == "migrate-project":
+        vault_root = resolve_required_root(args.vault_root, "--vault-root")
+        migrate_project_dry_run(
+            vault_root,
+            args.project_id,
+            args.target_project_root.expanduser().resolve(),
+        )
 
 
 if __name__ == "__main__":

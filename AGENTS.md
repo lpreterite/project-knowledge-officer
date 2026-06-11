@@ -12,43 +12,39 @@
 - 新会议是否更新、替代或冲突了旧结论？
 - 当前项目在不同业务层次上分别处于什么状态？
 
-## Repository And Vault Boundary
+## Repository And Knowledge Boundary
 
 区分两个根目录：
 
-- 产品仓库：保存脚本、模板、prompt、治理文档和示例数据。
-- knowledge vault：保存真实会议知识、项目 rollup、全局 register 和附件。
+- 机制包仓库：保存 `AGENTS.md`、脚本、模板、prompt、checklist、治理文档和示例数据。
+- 项目 knowledge 仓库：保存单个真实项目的会议知识、项目 rollup、项目领域知识和附件。
 
-真实知识数据默认应放在独立 knowledge vault 中，而不是产品仓库。项目初始化时，先让用户确认或配置：
+真实知识数据默认应按项目放在独立 knowledge 仓库中，而不是机制包仓库，也不是默认塞进一个统一大 vault。项目初始化时，先让用户确认或配置：
 
 ```text
-<vault-root>
+<project-knowledge-root>
 ```
 
-推荐 vault 结构：
+推荐项目 knowledge 仓库结构：
 
 ```text
-<vault-root>/
-├── vault.yaml
+<project-knowledge-root>/
+├── project.md
+├── project-config.yaml
 ├── inbox/
-├── projects/
-│   └── <project-id>/
-│       ├── project.md
-│       ├── project-config.yaml
-│       ├── meetings/
-│       │   └── YYYY/
-│       │       └── YYYY-MM-DD_<location>_<topic>/
-│       │           ├── metadata.yaml
-│       │           ├── transcript.md
-│       │           ├── analysis.md
-│       │           └── artifacts/
-│       └── knowledge/
-│           ├── current-summary.md
-│           ├── by-domain.md
-│           ├── current-decisions.md
-│           ├── current-open-questions.md
-│           ├── current-todos.md
-│           └── timeline.md
+├── meetings/
+│   └── YYYY/
+│       └── YYYY-MM-DD_<location>_<topic>/
+│           ├── metadata.yaml
+│           ├── transcript.md
+│           ├── analysis.md
+│           └── artifacts/
+├── knowledge/
+│   ├── current-summary.md
+│   ├── current-decisions.md
+│   ├── current-open-questions.md
+│   ├── current-todos.md
+│   └── timeline.md
 └── archive/
     └── superseded/
 ```
@@ -56,20 +52,14 @@
 Advanced profile 可以额外启用：
 
 ```text
-<vault-root>/
+<project-knowledge-root>/
 ├── domain/
 │   ├── glossary.md
 │   ├── taxonomy.md
 │   ├── entity-registry.md
 │   ├── decision-types.md
 │   └── writing-style.md
-├── global/
-│   ├── current-summary.md
-│   ├── decision-register.md
-│   ├── open-question-register.md
-│   ├── todo-register.md
-│   └── timeline.md
-└── projects/<project-id>/knowledge/
+└── knowledge/
     ├── by-domain.md
     ├── domain-context.md
     ├── entity-aliases.md
@@ -77,63 +67,75 @@ Advanced profile 可以额外启用：
     └── source-map.md
 ```
 
-产品仓库可以放 `templates/`、`prompts/`、`scripts/`、`checklists/` 和 `examples/`。不要把真实客户或业务知识混入示例目录。
+机制包仓库可以放 `templates/`、`prompts/`、`scripts/`、`checklists/` 和 `examples/`。不要把真实客户或业务知识混入示例目录。
 
 版本管理边界：
 
-- 产品仓库用 Git 管理 helper、脚本、模板、prompt 和治理规则。
-- Knowledge vault 用独立 Git 仓库管理真实会议知识。
-- 项目默认不单独建 Git 仓库，而是通过 vault 内 `projects/<project-id>/` 路径历史、`timeline.md` 和 `supersedes` / `superseded` 表达版本。
-- 只有当不同项目存在独立权限、独立远端同步或强隔离要求时，才考虑项目级独立仓库。
+- 机制包仓库用 Git 管理 helper、脚本、模板、prompt 和治理规则。
+- 项目 knowledge 仓库默认一项目一仓，例如 `project-a-knowledge.git`、`project-b-knowledge.git`。
+- 项目 knowledge 仓库默认应初始化本地 Git，用本地 commit 形成知识版本历史。
+- 初始 baseline commit 只应包含脚手架生成的配置、模板和空知识文件；不要把已有 inbox 材料或外部附件自动纳入初始提交。
+- 本地 Git 管理知识状态，不默认提交所有原始媒体、客户附件或大型二进制 artifact。提交原始/大型附件前必须确认 `artifact_git_policy`，不得默认使用 `--include-artifacts`。
+- 未入 Git 或外部存储的 artifact 必须登记在会议目录的 `artifacts/manifest.yaml`，包含 `filename`、`storage`、`path`、`size_bytes`、`sha256`、`received_datetime`、`source_note`、`access_note`、`git_policy`。不得只在 `analysis.md` 中写不可验证的本地路径。
+- 正式本地 commit 默认不得包含 `sha256: pending`。不得使用 `--allow-pending-artifacts`，除非用户明确要求保存不完整中间态。
+- 更新 artifact 文件后必须同步更新 manifest 的 `size_bytes` 和 `sha256`；正式 commit 会复算本地 artifact 的 size/hash。
+- `commit --project-root` 只应提交受控知识表面。遇到未知 untracked/modified 文件时，不得擅自使用 `--include-extra`；必须报告并让用户确认用途。
+- 只有需要多人协作、跨设备同步、备份或审计时，才需要创建或推送远端。
+- 员工共享知识的范围由他们共同参与的项目仓库决定。例如甲维护 A/B/C，乙维护 B/C/D，丙维护 A/X/Y，则甲乙共享 B/C，甲丙共享 A，乙丙没有直接共享项目。
+- 每个项目 knowledge 仓库必须在 `project.md` 和 `project-config.yaml` 中声明协作与共享边界。
+- 不得把一个项目 knowledge 仓库的结论当作另一个项目的事实；跨项目引用必须有明确来源链接，并经用户确认后才进入目标项目的 current 结论。
+- 原来的“一个 vault Git 管多个 `projects/<project-id>/`”只作为 portfolio/index 或 legacy/special-case 模式。
+- 默认不得用 `--vault-root new-project` 创建新项目；只有用户明确要求 portfolio/index、legacy vault 或跨项目索引时才使用 `--vault-root`。
+- `init-project` 只能用于独立 `<project-knowledge-root>`。不得在机制包仓库、legacy vault 的 `projects/` 子目录、或另一个 project knowledge repo 内初始化真实知识项目；确需接管已有目录时必须由用户明确确认 `--adopt-existing`。
+- Portfolio/index 默认只保存项目目录、仓库链接、访问边界和同步状态，不复制项目级 decisions、todos 或 open questions。
+- 使用 portfolio/index 时，不得直接从 index/global 文件写正式结论；如需跨项目总结，必须回读各项目 knowledge 仓库及其来源会议或 artifact。
+- 不得用 `--vault-root commit` 提交多项目事实；`--legacy-fact-vault` 只能在用户明确要求维护 legacy/special-case fact vault 时使用。
+- 遇到 legacy vault 中的 `projects/<project-id>/` 时，默认建议迁移到独立 `--project-root`；可先运行 `migrate-project --dry-run` 检查复制范围、缺失字段和 global fact register 依赖。
 
 ## Read First
 
 开始工作前，优先阅读：
 
 - `README.md`
-- `vault.yaml`
 - `prompts/analyze-meeting.md`
 - `prompts/update-rollups.md`
 - `templates/`
 - `checklists/meeting-ingest-checklist.md`
 
-如果启用了 advanced profile，处理会议前还要读 vault 级领域知识：
+处理具体项目时，先读该项目 knowledge 仓库：
 
-- `<vault-root>/domain/glossary.md`
-- `<vault-root>/domain/taxonomy.md`
-- `<vault-root>/domain/entity-registry.md`
-- `<vault-root>/domain/decision-types.md`
-- `<vault-root>/domain/writing-style.md`
-
-处理具体项目时，先读该项目：
-
-- `<vault-root>/projects/<project-id>/project.md`
-- `<vault-root>/projects/<project-id>/project-config.yaml`
-- `<vault-root>/projects/<project-id>/knowledge/current-summary.md`
-- `<vault-root>/projects/<project-id>/knowledge/current-decisions.md`
-- `<vault-root>/projects/<project-id>/knowledge/current-open-questions.md`
-- `<vault-root>/projects/<project-id>/knowledge/current-todos.md`
-- `<vault-root>/projects/<project-id>/knowledge/timeline.md`
+- `<project-knowledge-root>/project.md`
+- `<project-knowledge-root>/project-config.yaml`
+- `<project-knowledge-root>/knowledge/current-summary.md`
+- `<project-knowledge-root>/knowledge/current-decisions.md`
+- `<project-knowledge-root>/knowledge/current-open-questions.md`
+- `<project-knowledge-root>/knowledge/current-todos.md`
+- `<project-knowledge-root>/knowledge/timeline.md`
 
 如果启用了 advanced profile，再读：
 
-- `<vault-root>/projects/<project-id>/knowledge/by-domain.md`
-- `<vault-root>/projects/<project-id>/knowledge/domain-context.md`
-- `<vault-root>/projects/<project-id>/knowledge/entity-aliases.md`
-- `<vault-root>/projects/<project-id>/knowledge/project-taxonomy.md`
-- `<vault-root>/projects/<project-id>/knowledge/source-map.md`
+- `<project-knowledge-root>/domain/glossary.md`
+- `<project-knowledge-root>/domain/taxonomy.md`
+- `<project-knowledge-root>/domain/entity-registry.md`
+- `<project-knowledge-root>/domain/decision-types.md`
+- `<project-knowledge-root>/domain/writing-style.md`
+- `<project-knowledge-root>/knowledge/by-domain.md`
+- `<project-knowledge-root>/knowledge/domain-context.md`
+- `<project-knowledge-root>/knowledge/entity-aliases.md`
+- `<project-knowledge-root>/knowledge/project-taxonomy.md`
+- `<project-knowledge-root>/knowledge/source-map.md`
 
 ## Domain Knowledge Layer
 
-为了避免纪要泛泛而谈，knowledge vault 可以维护一层领域知识。领域知识只帮助理解会议，不替代会议事实来源。
+为了避免纪要泛泛而谈，项目 knowledge 仓库可以维护一层领域知识。领域知识只帮助理解会议，不替代会议事实来源。
 
 领域知识层属于 advanced profile。新用户应先从 minimal profile 开始，等术语、实体、指标或跨项目汇总需求稳定后再启用 advanced。
 
-Vault 级领域知识适合放团队共用内容：
+项目仓库级领域知识适合放该项目参与者共用内容：
 
-- `domain/glossary.md`：术语表。
+- `domain/glossary.md`：项目内术语表。
 - `domain/taxonomy.md`：通用业务分类、会议类型、决定类型。
-- `domain/entity-registry.md`：跨项目共用的人、组织、产品、系统、平台、指标别名。
+- `domain/entity-registry.md`：项目内共用的人、组织、产品、系统、平台、指标别名。
 - `domain/decision-types.md`：常见决定类型和判断标准。
 - `domain/writing-style.md`：写作风格、术语处理、来源表达规则。
 
@@ -149,28 +151,28 @@ Vault 级领域知识适合放团队共用内容：
 - 领域知识可以帮助解释术语和语境，但不能让没有来源的内容进入正式 decision、todo 或 current summary。
 - 领域知识不确定时标 `tentative` 或写入 open question。
 - 如果会议中出现新术语、实体别名、指标口径或项目专属分类，整理完会议后建议更新对应领域文件。
-- 如果项目级 taxonomy 与 vault 默认 taxonomy 冲突，以项目级文件为准，但要保持项目内稳定。
+- 如果项目级 taxonomy 与机制包模板或 portfolio/index 默认 taxonomy 冲突，以项目级文件为准，但要保持项目内稳定。
 
 ## Language Rule
 
 默认使用中文维护项目自有文档、会议分析、rollup、todo、decision、open question、handoff 和说明文字。
 
-允许保留必要英文术语、命令、路径、字段名和产品名，例如 `Git`、`PDF`、`PPTX`、`ASR`、`metadata.yaml`、`transcript.md`、`analysis.md`、`vault_root`、`current-todos.md`。
+允许保留必要英文术语、命令、路径、字段名和产品名，例如 `Git`、`PDF`、`PPTX`、`ASR`、`metadata.yaml`、`transcript.md`、`analysis.md`、`project_root`、`current-todos.md`。
 
 如果用户明确要求英文输出，可以按用户要求执行，但知识库内部字段名和文件名仍保持模板约定。
 
 ## Default Workflow
 
-1. 检查 `<vault-root>/inbox/` 是否有新会议材料。
-2. 读取 `vault.yaml`、项目 `project-config.yaml` 和当前项目知识文件。
-   - 如果启用了 advanced profile，再读取 vault 级 domain 文件和项目级 context 文件。
+1. 检查 `<project-knowledge-root>/inbox/` 是否有新会议材料。
+2. 读取项目 `project-config.yaml` 和当前项目知识文件。
+   - 如果启用了 advanced profile，再读取项目仓库级 `domain/` 文件和项目级 context 文件。
 3. 确认项目、会议实际发生日期、地点、主题、是否已有 ASR 文本。
 4. 如果会议实际发生时间不明确，先问用户，不要用文件创建时间替代。
 5. 创建或确认项目目录。
 6. 创建会议目录：
 
    ```text
-   <vault-root>/projects/<project-id>/meetings/YYYY/YYYY-MM-DD_<location>_<topic>/
+   <project-knowledge-root>/meetings/YYYY/YYYY-MM-DD_<location>_<topic>/
    ```
 
 7. 每场会议至少包含：
@@ -182,11 +184,11 @@ Vault 级领域知识适合放团队共用内容：
 8. 先生成单场会议 `analysis.md`。
 9. 再更新项目级 `knowledge/current-*` 和 `timeline.md`。
 10. 如果启用了 advanced profile，再更新 `by-domain.md` 和领域知识文件。
-11. 如会议引入新术语、实体、指标或分类，先在 `analysis.md` 中列为“领域知识更新建议”；确认后再更新项目级或 vault 级领域知识文件。
-12. 项目级更新完成后，如有跨项目意义且启用了 global registers，再更新 `global/`。
+11. 如会议引入新术语、实体、指标或分类，先在 `analysis.md` 中列为“领域知识更新建议”；确认后再更新项目仓库级或项目 knowledge 级领域知识文件。
+12. 如需跨项目视图，只在明确启用 portfolio/index 模式时更新项目索引、访问边界或同步状态；不得默认复制项目事实 register。
 13. 完成后检查 diff、来源链接、未确认时间、冲突、unknown owner / due。
-14. 运行 `validate-project` 或 `validate-vault`。
-15. 如果 vault 使用 Git，提交知识库变更。
+14. 运行 `validate-project`。
+15. 验证通过后提交本地 Git 版本；`commit` 命令默认会再次验证。不得使用 `--allow-invalid`，除非用户明确要求保存不完整状态。只有多人协作、同步、备份或审计需要时才推送远端。
 
 ## Time And Versioning Rules
 
@@ -222,13 +224,13 @@ Vault 级领域知识适合放团队共用内容：
 
 如果一条知识跨多个 domain，选择主要 domain，并在描述中说明依赖关系。不要为了 domain 把同一场会议拆成多个目录。
 
-`vault.yaml` 和 `project-config.yaml` 是 taxonomy 的配置锚点。
+`project-config.yaml` 是 taxonomy 的配置锚点。
 
-- `vault.yaml` 只提供新项目默认值。
 - `project-config.yaml` 是项目执行时的 authoritative taxonomy。
 - `project-taxonomy.md` 用来解释项目 taxonomy 的业务含义和使用规则。
+- portfolio/index 模式中的 `vault.yaml` 只提供批量创建项目时的默认值。
 
-不同客户、行业或项目类型可以使用不同 taxonomy。处理会议、更新 rollup、运行验证时，必须优先使用项目级 `project-config.yaml`，不要把 vault 默认分类强行套到所有项目。
+不同客户、行业或项目类型可以使用不同 taxonomy。处理会议、更新 rollup、运行验证时，必须优先使用项目级 `project-config.yaml`，不要把机制包模板或 portfolio/index 默认分类强行套到所有项目。
 
 Domain 调整必须同步更新项目级配置文件；不要只改 Markdown 表格标题。
 
@@ -315,8 +317,9 @@ Open question status：
 ## Do
 
 - 先读现有项目知识库，再分析新会议。
-- 先读 vault 级和项目级领域知识，再解释术语、角色和项目语境。
+- 先读项目仓库级和项目 knowledge 级领域知识，再解释术语、角色和项目语境。
 - 保留原始 transcript 和附件，不覆盖源材料。
+- 对未入 Git 或外部存储的附件补充 `artifacts/manifest.yaml`。
 - 每个重要结论都链接到来源会议。
 - 区分事实、推断、决定、todo、风险和 open question。
 - 每条 decision、todo、open question 都标注 `Domain`。
@@ -344,6 +347,8 @@ Open question status：
 git status --short
 git diff --stat
 rg -n "meeting_datetime|received_datetime|supersedes|Domain|unknown" .
+python3 /path/to/meeting-helpers/scripts/meeting_helpers.py --project-root . validate-project
+python3 /path/to/meeting-helpers/scripts/meeting_helpers.py --project-root . commit -m "Update <project> meeting rollups"
 ```
 
 提交建议：
@@ -352,3 +357,5 @@ rg -n "meeting_datetime|received_datetime|supersedes|Domain|unknown" .
 git add .
 git commit -m "Update <project> meeting rollups"
 ```
+
+只有多人协作、同步、备份或审计需要时，才推送远端。

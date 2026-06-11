@@ -1,6 +1,6 @@
 # 更新 Rollup Prompt
 
-你是一名项目知识库维护助手。请基于最新会议 `analysis.md`，更新项目级和全局汇总。
+你是一名项目知识库维护助手。请基于最新会议 `analysis.md`，更新项目级汇总。Portfolio/index 默认只维护项目索引、访问边界和同步状态，不复制项目级事实 register。
 
 ## 输入
 
@@ -20,8 +20,13 @@
 - 当前项目 `knowledge/entity-aliases.md`
 - 当前项目 `knowledge/project-taxonomy.md`
 - 当前项目 `knowledge/source-map.md`
-- 当前 `<vault-root>/domain/*`
-- 当前 `global/*`
+- 当前项目 `domain/*`
+
+如果明确启用了 portfolio/index 模式，再读取对应 index/global 文件：
+
+- `global/project-index.md`
+- `global/access-boundaries.md`
+- `global/sync-status.md`
 
 ## 更新目标
 
@@ -31,13 +36,9 @@
 4. 项目级 `current-todos.md`
 5. 项目级 `timeline.md`
 6. advanced profile 下的项目级 `by-domain.md`
-7. advanced profile 下的全局 `decision-register.md`
-8. advanced profile 下的全局 `open-question-register.md`
-9. advanced profile 下的全局 `todo-register.md`
-10. advanced profile 下的全局 `current-summary.md`
-11. advanced profile 下的全局 `timeline.md`
-12. advanced profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
-13. advanced profile 下的 Vault 级 `domain/*`（仅当新增内容跨项目复用时）
+7. advanced profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
+8. advanced profile 下的项目仓库级 `domain/*`（仅当新增内容在本项目内复用时）
+9. portfolio/index 模式下的 `project-index.md`、`access-boundaries.md`、`sync-status.md`（仅更新目录、访问边界和同步状态）
 
 ## 规则
 
@@ -46,10 +47,10 @@
 - 如果同一知识点产生冲突，但不能明确判断哪个版本应该保留，不能覆盖；必须写入 open question 等待用户确认。
 - 被替代条目状态改为 `superseded`，并保留来源。
 - 已完成 todo 改为 `done`，不要删除。
-- 新增未决事项必须进入 open question register。
+- 新增未决事项必须进入项目级 `current-open-questions.md`；不要默认同步到跨项目 open question register。
 - 所有条目必须保留 `project`、`domain`、`status`、`updated`、`source`。
 - domain 默认从 `业务目标`、`范围/需求`、`方案/决策`、`数据/证据`、`交付/执行`、`风险/依赖`、`协作/责任` 中选择一个主分类；如果项目 `project-config.yaml` / `project-taxonomy.md` 已定义自己的分类，以项目级 taxonomy 为准。
-- 不要把单次会议中的噪音写进全局总结。
+- 不要把单次会议中的噪音写进项目总结；如果启用了 portfolio/index，也不要把项目事实复制进 index/global 文件。
 - 不要在无来源证据的情况下改写 current 结论。
 - 领域知识文件只记录可复用语境，不替代 current 结论；新增内容应尽量标 source 或 status。
 

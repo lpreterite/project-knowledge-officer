@@ -1,0 +1,14 @@
+version: 1
+artifacts: []
+# Example:
+# artifacts:
+#   - filename: "source-deck.pdf"
+#     storage: "git|external|local_only"
+#     # path is relative to the meeting directory.
+#     path: "artifacts/source-deck.pdf"
+#     size_bytes: 0
+#     sha256: "pending"
+#     received_datetime: "unknown"
+#     source_note: "unknown"
+#     access_note: "project_participants_only"
+#     git_policy: "committed|ignored_external|external_only|local_only"
