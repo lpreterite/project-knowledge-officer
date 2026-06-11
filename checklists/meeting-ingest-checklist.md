@@ -1,19 +1,25 @@
 # Meeting Ingest Checklist
 
-## 入库前
+这份清单给 Agent 使用。普通版用户不需要理解目录、YAML、manifest、Git 或脚本参数；Agent 只把必要业务确认问给用户。
 
-- [ ] 已确认 `<project-knowledge-root>`。
-- [ ] 新材料已放入 `<project-knowledge-root>/inbox/`。
-- [ ] 已确认项目 ID。
+## 普通版用户确认项
+
+- [ ] 已确认这场会议属于哪个项目。
+- [ ] 已确认会议实际发生日期；如果只有文件创建时间或收到时间，已停止并询问用户。
+- [ ] Agent 已回显自动识别的会议主题、地点和材料类型；用户未纠正时按识别结果继续。
+- [ ] 如是新项目，已确认项目名称。
+- [ ] 如是新项目，已确认使用普通版还是 DIY 版。
+- [ ] 如是新项目，已确认默认隐私设置：此项目默认只给用户本人本机使用；以后共享前先检查敏感附件和共享范围。
+
+## Agent 内部准备
+
+- [ ] 已确定或创建项目知识文件夹；普通版默认建议 `~/MeetingKnowledge/<project-id>-knowledge`，用户可覆盖。
+- [ ] 新材料已进入项目知识仓库的 `inbox/`，或已从用户提供路径复制/登记。
 - [ ] 已读取 `project.md`、`project-config.yaml` 和 `knowledge/current-*`。
-- [ ] 如启用 advanced profile，已读取项目仓库级 `domain/*` 和项目级 `domain-context.md`、`entity-aliases.md`、`project-taxonomy.md`、`source-map.md`。
-- [ ] 已确认会议实际发生日期。
-- [ ] 已确认会议地点或渠道。
-- [ ] 已确认会议主题。
-- [ ] 已确认是否已有 ASR / transcript。
-- [ ] 已确认 artifacts 是否应进入 Git；大型/敏感原始材料是否改用外部受控存储并记录 source link/hash。
+- [ ] 如启用 DIY 版结构扩展或内部 `advanced` profile，已读取项目仓库级 `domain/*` 和项目级 `domain-context.md`、`entity-aliases.md`、`project-taxonomy.md`、`source-map.md`。
+- [ ] 已区分 transcript/ASR、PDF、PPT、图片、表格、录音和用户补充材料；普通版可先把文字材料按 transcript/ASR 处理。
+- [ ] 已判断 artifacts 是否应进入 Git；大型/敏感原始材料默认改用外部受控存储并记录 source link/hash。
 - [ ] 外部或 ignored artifact 已登记 `artifacts/manifest.yaml`，并补齐 `filename`、`storage`、`path`、`size_bytes`、`sha256`、`received_datetime`、`source_note`、`access_note`、`git_policy`。
-- [ ] 如果只有文件创建时间，已停止入库并询问用户会议实际时间。
 
 ## 创建会议目录
 
@@ -21,7 +27,7 @@
 - [ ] 已创建 `metadata.yaml`。
 - [ ] 已创建或复制 `transcript.md`。
 - [ ] 已创建 `analysis.md`。
-- [ ] 附件已放入 `artifacts/`。
+- [ ] 附件已放入 `artifacts/` 或已在 manifest 中登记外部位置。
 - [ ] `artifacts/manifest.yaml` 已创建并登记所有 artifact 或外部 artifact metadata；`sha256` 为实际 hash 或显式 `pending`。
 
 ## 单场分析
@@ -32,16 +38,17 @@
 - [ ] 每条 decision、todo、open question 都有 Domain。
 - [ ] 未知 owner / due 已写 `unknown`，没有猜。
 - [ ] 重要结论有 source。
+- [ ] 主题、地点、材料类型等自动识别内容已在分析中保留来源或不确定性。
 
 ## Rollup 更新
 
 - [ ] 更新 `current-summary.md`。
-- [ ] 更新 `by-domain.md`。
 - [ ] 更新 `current-decisions.md`。
 - [ ] 更新 `current-open-questions.md`。
 - [ ] 更新 `current-todos.md`。
 - [ ] 更新 `timeline.md`。
-- [ ] 如明确启用 portfolio/index 模式且有跨项目意义，更新 `global/*`。
+- [ ] 如启用 DIY 版结构扩展或内部 `advanced` profile，更新 `by-domain.md`。
+- [ ] 如明确启用 portfolio/index 模式且有跨项目意义，更新 `global/*` 的目录、访问边界或同步状态。
 - [ ] 如出现新术语、实体别名、指标口径或分类，已更新领域知识文件或记录待确认项。
 
 ## 冲突和版本
@@ -51,6 +58,7 @@
 - [ ] 被替代旧结论已标 `superseded`。
 - [ ] 不确定冲突已进入 open question，没有覆盖。
 - [ ] 同一天冲突但无具体时间时，已向用户确认先后顺序。
+- [ ] 模式转换没有改写 existing decisions、todos 或 open questions 的含义。
 
 ## 完成前
 

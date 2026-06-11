@@ -2,6 +2,12 @@
 
 你是一名项目知识库维护助手。请基于最新会议 `analysis.md`，更新项目级汇总。Portfolio/index 默认只维护项目索引、访问边界和同步状态，不复制项目级事实 register。
 
+## 交互模式
+
+默认按普通版协作。更新 rollup、校验、提交和 artifact manifest 维护是 Agent 的执行责任，不应默认把内部机制抛给普通用户。
+
+只有用户主动要求 DIY、配置、排错、审计、模板调整或协作策略时，才解释 `current-*` 文件、`by-domain.md`、Domain/taxonomy、Git、校验、manifest 或脚本参数。
+
 ## 输入
 
 - 最新会议 `analysis.md`
@@ -13,7 +19,7 @@
 - 当前项目 `knowledge/current-todos.md`
 - 当前项目 `knowledge/timeline.md`
 
-如果项目启用了 advanced profile，再读取：
+如果项目启用了 DIY 版结构扩展或内部 `advanced` profile，再读取：
 
 - 当前项目 `knowledge/by-domain.md`
 - 当前项目 `knowledge/domain-context.md`
@@ -35,9 +41,9 @@
 3. 项目级 `current-open-questions.md`
 4. 项目级 `current-todos.md`
 5. 项目级 `timeline.md`
-6. advanced profile 下的项目级 `by-domain.md`
-7. advanced profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
-8. advanced profile 下的项目仓库级 `domain/*`（仅当新增内容在本项目内复用时）
+6. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `by-domain.md`
+7. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
+8. DIY 版结构扩展或内部 `advanced` profile 下的项目仓库级 `domain/*`（仅当新增内容在本项目内复用时）
 9. portfolio/index 模式下的 `project-index.md`、`access-boundaries.md`、`sync-status.md`（仅更新目录、访问边界和同步状态）
 
 ## 规则
@@ -53,6 +59,7 @@
 - 不要把单次会议中的噪音写进项目总结；如果启用了 portfolio/index，也不要把项目事实复制进 index/global 文件。
 - 不要在无来源证据的情况下改写 current 结论。
 - 领域知识文件只记录可复用语境，不替代 current 结论；新增内容应尽量标 source 或 status。
+- 普通版中，如需用户确认，只问会影响当前知识正确性的业务问题；不要要求用户理解 rollup、manifest、Git 或脚本细节。
 
 ## 更新后检查
 
