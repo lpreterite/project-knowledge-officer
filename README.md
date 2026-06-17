@@ -246,6 +246,14 @@ python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge n
 python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge validate-project
 ```
 
+检查项目知识健康风险：
+
+```bash
+python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge health-lint
+```
+
+`health-lint` 不替代 `validate-project`。`validate-project` 检查结构、字段、Domain、来源和 artifact manifest 是否满足硬性规则；`health-lint` 只报告需要人工复核的知识健康 warning，例如重复 open todo、缺少 Markdown source link、open question 未进入 timeline、`active` 决定仍带 `Supersedes`、DIY 版重复术语未进入领域知识。
+
 验证通过后提交本地版本：
 
 ```bash

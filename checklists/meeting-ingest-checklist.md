@@ -65,6 +65,7 @@
 - [ ] `rg -n "meeting_datetime|received_datetime|supersedes|Domain|unknown" .` 已检查。
 - [ ] `git diff --stat` 已检查。
 - [ ] `validate-project` 已通过。
+- [ ] `health-lint` 已运行；warning 已人工复核，必要修改已回到来源会议或 artifact 处理。
 - [ ] 已确认提交边界是完整会议 ingest、analysis、rollup 和验证后的知识更新，不是单纯创建 meeting skeleton。
 - [ ] 已创建本地 Git commit；commit 命令会再次运行验证。
 - [ ] 未使用 `--allow-invalid`，除非用户明确要求保存不完整状态。

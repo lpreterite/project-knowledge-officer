@@ -887,6 +887,122 @@ def validate_markdown_domains(path: Path, allowed_domains: set[str], result: Val
             result.error(f"{path}: unknown Domain '{domain}'")
 
 
+def markdown_table_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    headers: list[str] | None = None
+    rows: list[dict[str, str]] = []
+    for line in read_text(path).splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if set(cells) == {"---"}:
+            continue
+        if headers is None:
+            headers = cells
+            continue
+        if all(cell.startswith("---") for cell in cells):
+            continue
+        if len(cells) < len(headers):
+            cells.extend([""] * (len(headers) - len(cells)))
+        rows.append(dict(zip(headers, cells)))
+    return rows
+
+
+def lint_duplicate_open_todos(project_root: Path, result: ValidationResult) -> None:
+    todos_path = project_root / "knowledge" / "current-todos.md"
+    seen: dict[tuple[str, str], str] = {}
+    for row in markdown_table_rows(todos_path):
+        if row.get("Status") != "open":
+            continue
+        key = (row.get("Todo", "").strip().casefold(), row.get("Source", "").strip())
+        if not key[0]:
+            continue
+        existing_id = seen.get(key)
+        current_id = row.get("ID", "")
+        if existing_id:
+            result.warn(f"{todos_path}: duplicate open todo '{row.get('Todo')}' ({existing_id}, {current_id})")
+        else:
+            seen[key] = current_id
+
+
+def lint_active_decisions_with_supersedes(project_root: Path, result: ValidationResult) -> None:
+    decisions_path = project_root / "knowledge" / "current-decisions.md"
+    for row in markdown_table_rows(decisions_path):
+        if row.get("Status") != "active":
+            continue
+        supersedes = row.get("Supersedes", "").strip()
+        if supersedes:
+            result.warn(
+                f"{decisions_path}: active decision has Supersedes '{supersedes}' ({row.get('ID', '')})"
+            )
+
+
+def lint_missing_source_links(project_root: Path, result: ValidationResult) -> None:
+    knowledge_root = project_root / "knowledge"
+    for filename in ["current-decisions.md", "current-open-questions.md", "current-todos.md"]:
+        path = knowledge_root / filename
+        for row in markdown_table_rows(path):
+            source = row.get("Source", "").strip()
+            if not source or source == "<source>" or source == "unknown":
+                continue
+            if "](" not in source:
+                row_id = row.get("ID", "unknown")
+                result.warn(f"{path}: missing markdown source link ({row_id})")
+
+
+def lint_open_questions_without_timeline_reference(project_root: Path, result: ValidationResult) -> None:
+    questions_path = project_root / "knowledge" / "current-open-questions.md"
+    timeline_text = read_text(project_root / "knowledge" / "timeline.md")
+    for row in markdown_table_rows(questions_path):
+        if row.get("Status") != "open":
+            continue
+        question_id = row.get("ID", "").strip()
+        if question_id and question_id not in timeline_text:
+            result.warn(f"{questions_path}: open question not referenced in timeline ({question_id})")
+
+
+def lint_repeated_terms_missing_from_context(project_root: Path, result: ValidationResult) -> None:
+    if project_profile(project_root, "minimal") != "advanced":
+        return
+    term_counts: dict[str, int] = {}
+    for analysis_path in sorted((project_root / "meetings").glob("*/*/analysis.md")):
+        for line in read_text(analysis_path).splitlines():
+            if "术语：" not in line:
+                continue
+            term = line.split("术语：", 1)[1].strip(" -`")
+            if term:
+                term_counts[term] = term_counts.get(term, 0) + 1
+    if not term_counts:
+        return
+    context_text = "\n".join(
+        read_text(path)
+        for path in [
+            project_root / "domain" / "glossary.md",
+            project_root / "domain" / "entity-registry.md",
+            project_root / "knowledge" / "domain-context.md",
+            project_root / "knowledge" / "entity-aliases.md",
+            project_root / "knowledge" / "project-taxonomy.md",
+        ]
+    )
+    for term, count in sorted(term_counts.items()):
+        if count >= 2 and term not in context_text:
+            result.warn(f"{project_root / 'meetings'}: repeated term missing from domain/context '{term}'")
+
+
+def health_lint_project_root(project_root: Path) -> ValidationResult:
+    result = ValidationResult()
+    if not project_root.exists():
+        result.error(f"Project does not exist: {project_root}")
+        return result
+    lint_duplicate_open_todos(project_root, result)
+    lint_active_decisions_with_supersedes(project_root, result)
+    lint_missing_source_links(project_root, result)
+    lint_open_questions_without_timeline_reference(project_root, result)
+    lint_repeated_terms_missing_from_context(project_root, result)
+    return result
+
+
 def validate_sources(path: Path, result: ValidationResult) -> None:
     if not path.exists():
         return
@@ -1313,6 +1429,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate a portfolio/index or legacy vault.",
     )
 
+    subparsers.add_parser(
+        "health-lint",
+        help="Report project knowledge consistency warnings without modifying files.",
+    )
+
     domains_parser = subparsers.add_parser(
         "set-project-domains",
         help="Set domains for a project inside a portfolio/index or legacy vault.",
@@ -1443,6 +1564,13 @@ def main() -> None:
     elif args.command == "validate-vault":
         vault_root = resolve_required_root(args.vault_root, "--vault-root")
         result = validate_vault(vault_root)
+        result.print()
+        raise SystemExit(1 if result.errors else 0)
+    elif args.command == "health-lint":
+        if args.project_root:
+            result = health_lint_project_root(args.project_root.expanduser().resolve())
+        else:
+            raise SystemExit("--project-root is required for health-lint")
         result.print()
         raise SystemExit(1 if result.errors else 0)
     elif args.command == "set-project-domains":

@@ -182,6 +182,166 @@ class MeetingHelpersTest(unittest.TestCase):
             self.assertIn("- Created: meetings/2026/2026-06-17_remote_planning", log_text)
             self.assertNotIn("## Content", log_text)
 
+    def test_health_lint_reports_duplicate_open_todos_without_mutating_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            todos = project_root / "knowledge" / "current-todos.md"
+            todos.write_text(
+                "# 当前 Todo\n\n"
+                "| ID | Todo | Domain | Status | Owner | Due | Updated | Source |\n"
+                "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+                "| todo-1 | Follow up with client | 协作/责任 | open | unknown | unknown | 2026-06-17 | [m1](../meetings/2026/m1/analysis.md) |\n"
+                "| todo-2 | Follow up with client | 协作/责任 | open | unknown | unknown | 2026-06-17 | [m1](../meetings/2026/m1/analysis.md) |\n",
+                encoding="utf-8",
+            )
+            before = todos.read_text(encoding="utf-8")
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("WARN:", result.stdout)
+            self.assertIn("duplicate open todo", result.stdout)
+            self.assertEqual(before, todos.read_text(encoding="utf-8"))
+
+    def test_health_lint_reports_active_decision_that_supersedes_another_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            decisions = project_root / "knowledge" / "current-decisions.md"
+            decisions.write_text(
+                "# 当前决定\n\n"
+                "| ID | Decision | Domain | Status | Updated | Supersedes | Source |\n"
+                "| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| decision-1 | Use local project repos | 方案/决策 | active | 2026-06-17 | decision-0 | [m1](../meetings/2026/m1/analysis.md) |\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("WARN:", result.stdout)
+            self.assertIn("active decision has Supersedes", result.stdout)
+
+    def test_health_lint_reports_ok_for_clean_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual("OK\n", result.stdout)
+
+    def test_health_lint_reports_missing_source_links_and_unreferenced_open_questions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            questions = project_root / "knowledge" / "current-open-questions.md"
+            questions.write_text(
+                "# 当前未决事项\n\n"
+                "| ID | Question | Domain | Status | Owner | Updated | Source |\n"
+                "| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| question-1 | Confirm launch owner | 协作/责任 | open | unknown | 2026-06-17 | m1 |\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("missing markdown source link", result.stdout)
+            self.assertIn("open question not referenced in timeline", result.stdout)
+
+    def test_health_lint_reports_repeated_terms_missing_from_advanced_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--profile",
+                "advanced",
+                "--no-git",
+            )
+            for meeting_id in ["m1", "m2"]:
+                meeting_dir = project_root / "meetings" / "2026" / meeting_id
+                meeting_dir.mkdir(parents=True)
+                (meeting_dir / "analysis.md").write_text(
+                    "# 会议分析\n\n- 术语：Agent Memory\n",
+                    encoding="utf-8",
+                )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("repeated term missing from domain/context", result.stdout)
+            self.assertIn("Agent Memory", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -393,8 +393,11 @@ git status --short
 git diff --stat
 rg -n "meeting_datetime|received_datetime|supersedes|Domain|unknown" .
 python3 /path/to/meeting-helpers/scripts/meeting_helpers.py --project-root . validate-project
+python3 /path/to/meeting-helpers/scripts/meeting_helpers.py --project-root . health-lint
 python3 /path/to/meeting-helpers/scripts/meeting_helpers.py --project-root . commit -m "Update <project> meeting rollups"
 ```
+
+`health-lint` 只报告知识健康 warning，不自动改写 decisions、todos、open questions、rollup 或领域知识。需要改写正式事实时，必须回到来源会议或 artifact，并按正常 rollup 更新流程处理。
 
 提交建议：
 

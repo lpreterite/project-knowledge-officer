@@ -95,6 +95,8 @@ git commit -m "Update <project-id> meeting rollups"
 
 如果使用 `scripts/meeting_helpers.py commit`，脚本会在提交前默认运行验证；验证失败时拒绝提交。只有明确需要保存迁移中间态或 WIP 时，才使用 `--allow-invalid`。
 
+`validate-project` 是硬性结构校验。`health-lint` 是独立的知识健康检查，只报告 warning，不自动改写项目事实。它适合在入库、复盘或分享前检查重复 open todo、缺少 source link、open question 是否进入 timeline、`active` 决定是否仍带 `Supersedes`、以及 DIY 版重复术语是否需要沉淀到领域知识。
+
 `commit --project-root` 只自动提交 validated knowledge surface：项目配置、项目说明、知识 rollup、领域知识、会议分析文件和 artifact manifest。未知路径默认拒绝提交，防止初始化前遗留文件、临时导出或本地笔记混入知识版本；只有用户明确确认后，才使用 `--include-extra`。
 
 本地 Git 管理知识状态，不等于默认提交所有原始媒体和客户附件。项目仓库应通过 `.gitignore` 和 `artifact_git_policy` 控制附件策略：Markdown/YAML 知识文件默认入 Git；录音、视频、压缩包和大型二进制 artifact 默认放在外部受控存储，并在知识库中记录 source link/hash。只有确认项目策略后，才显式使用 `--include-artifacts` 提交已进入候选提交的大型附件；被 `.gitignore` 忽略的原始媒体需要先按项目策略调整 ignore 规则。
