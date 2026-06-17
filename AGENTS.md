@@ -143,6 +143,7 @@ DIY 版结构扩展可以通过内部 `advanced` profile 额外启用：
 - `prompts/update-rollups.md`
 - `templates/`
 - `checklists/meeting-ingest-checklist.md`
+- `docs/cross-link-conventions.md`
 
 处理具体项目时，先读该项目 knowledge 仓库：
 
@@ -369,6 +370,7 @@ Open question status：
 - 保留原始 transcript 和附件，不覆盖源材料。
 - 对未入 Git 或外部存储的附件补充 `artifacts/manifest.yaml`。
 - 每个重要结论都链接到来源会议。
+- 使用普通 Markdown 链接连接 rollup、timeline、meeting analysis、artifact manifest 和 brief；链接约定见 `docs/cross-link-conventions.md`。
 - 区分事实、推断、决定、todo、风险和 open question。
 - 每条 decision、todo、open question 都标注 `Domain`。
 - 用 `current-*` 表示当前有效状态，用 `analysis.md` 保留单场会议事实。

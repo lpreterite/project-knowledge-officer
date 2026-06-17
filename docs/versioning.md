@@ -88,6 +88,8 @@ project-a-knowledge/
 
 本地 commit 默认表示 validated knowledge snapshot，而不是任意文件快照。建议每次入库或 rollup 验证通过后提交一次本地 commit：
 
+跨文件链接使用普通 Markdown 链接，约定见 [cross-link-conventions.md](cross-link-conventions.md)。链接帮助 Agent 和人类审阅证据图，但正式事实仍由 `current-*`、`timeline.md`、会议 `analysis.md` 和 artifact manifest 表达。
+
 ```bash
 git status --short
 git diff --stat

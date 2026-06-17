@@ -38,6 +38,7 @@
 - [ ] 每条 decision、todo、open question 都有 Domain。
 - [ ] 未知 owner / due 已写 `unknown`，没有猜。
 - [ ] 重要结论有 source。
+- [ ] source 使用可导航 Markdown 链接，指向会议 `analysis.md`、`transcript.md` 或 `artifacts/manifest.yaml`。
 - [ ] 主题、地点、材料类型等自动识别内容已在分析中保留来源或不确定性。
 
 ## Rollup 更新
@@ -47,6 +48,7 @@
 - [ ] 更新 `current-open-questions.md`。
 - [ ] 更新 `current-todos.md`。
 - [ ] 更新 `timeline.md`。
+- [ ] 更新 `index.md` 导航链接。
 - [ ] 如启用 DIY 版结构扩展或内部 `advanced` profile，更新 `by-domain.md`。
 - [ ] 如明确启用 portfolio/index 模式且有跨项目意义，更新 `global/*` 的目录、访问边界或同步状态。
 - [ ] 如出现新术语、实体别名、指标口径或分类，已更新领域知识文件或记录待确认项。

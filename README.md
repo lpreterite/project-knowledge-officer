@@ -55,6 +55,8 @@ Agent 只需要向用户确认：
 
 双模式规则见 [docs/ordinary-and-diy-modes.md](docs/ordinary-and-diy-modes.md)。现有脚本和配置里的 `minimal` / `advanced` 是内部 profile 兼容名：`minimal` 是普通版能力底座，`advanced` 是 DIY 版可以启用的结构能力扩展。
 
+项目知识文件之间的链接约定见 [docs/cross-link-conventions.md](docs/cross-link-conventions.md)。普通版用户不需要手工维护这些链接；Agent 在写入 rollup、timeline、brief 和会议分析时负责保留来源链接。
+
 ## 机制包包含内容
 
 ```text
@@ -98,6 +100,7 @@ meeting-helpers/
 ├── docs/
 │   ├── ordinary-and-diy-modes.md
 │   ├── adoption-levels.md
+│   ├── cross-link-conventions.md
 │   └── versioning.md
 └── examples/
     └── vault-structure.md

@@ -8,8 +8,8 @@
 - Time Confidence: <confirmed|date_only|unknown>
 - Source:
   - `metadata.yaml`
-  - `transcript.md`
-  - <artifacts if any>
+  - [transcript.md](transcript.md)
+  - [artifacts/manifest.yaml](artifacts/manifest.yaml) if any
 
 ## 会议目的
 
@@ -29,19 +29,19 @@
 
 | ID | Decision | Domain | Status | Supersedes | Source |
 | --- | --- | --- | --- | --- | --- |
-| decision-YYYY-MM-DD-001 | <决定内容> | 方案/决策 | active |  | transcript.md |
+| decision-YYYY-MM-DD-001 | <决定内容> | 方案/决策 | active |  | [transcript.md](transcript.md) |
 
 ## 未决事项
 
 | ID | Question | Domain | Status | Owner | Source |
 | --- | --- | --- | --- | --- | --- |
-| question-YYYY-MM-DD-001 | <待确认问题> | 风险/依赖 | open | unknown | transcript.md |
+| question-YYYY-MM-DD-001 | <待确认问题> | 风险/依赖 | open | unknown | [transcript.md](transcript.md) |
 
 ## Todo
 
 | ID | Todo | Domain | Status | Owner | Due | Source |
 | --- | --- | --- | --- | --- | --- | --- |
-| todo-YYYY-MM-DD-001 | <行动项> | 协作/责任 | open | unknown | unknown | transcript.md |
+| todo-YYYY-MM-DD-001 | <行动项> | 协作/责任 | open | unknown | unknown | [transcript.md](transcript.md) |
 
 ## 风险、依赖和阻塞
 

@@ -79,6 +79,7 @@ KNOWLEDGE_INDEX_REQUIRED_SECTIONS = [
     "## 最近知识更新",
 ]
 KNOWLEDGE_LOG_HEADING_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] [a-z][a-z0-9-]* \| .+")
+MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
 PROJECT_GITIGNORE = """# OS/editor noise
@@ -953,6 +954,19 @@ def lint_missing_source_links(project_root: Path, result: ValidationResult) -> N
             if "](" not in source:
                 row_id = row.get("ID", "unknown")
                 result.warn(f"{path}: missing markdown source link ({row_id})")
+                continue
+            for target in MARKDOWN_LINK_RE.findall(source):
+                if "://" in target or target.startswith("#"):
+                    continue
+                target_path = (path.parent / target).resolve()
+                try:
+                    target_path.relative_to(project_root.resolve())
+                except ValueError:
+                    result.warn(f"{path}: markdown source link escapes project root ({target})")
+                    continue
+                if not target_path.exists():
+                    row_id = row.get("ID", "unknown")
+                    result.warn(f"{path}: broken markdown source link ({row_id} -> {target})")
 
 
 def lint_open_questions_without_timeline_reference(project_root: Path, result: ValidationResult) -> None:

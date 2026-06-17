@@ -19,6 +19,7 @@
 - `<project-knowledge-root>/knowledge/current-open-questions.md`
 - `<project-knowledge-root>/knowledge/current-todos.md`
 - `<project-knowledge-root>/knowledge/timeline.md`
+- `<project-knowledge-root>/knowledge/index.md`
 
 如果项目启用了 DIY 版结构扩展或内部 `advanced` profile，再读取：
 
@@ -66,6 +67,8 @@
 - 如果 transcript 中没有负责人或截止时间，写 `unknown`，不要猜。
 - 如果某个新观点替代旧观点，标注 `supersedes`。
 - 每个重要结论都要写来源证据，优先引用时间点、发言人、页码、附件名或相关片段摘要。
+- `Source` 字段使用普通 Markdown 链接。会议内条目优先链接 `[transcript.md](transcript.md)` 或 `[artifacts/manifest.yaml](artifacts/manifest.yaml)`；不要只写裸文件名。
+- 如果某条结论替代旧结论，`Supersedes` 保留旧 ID，并在说明中链接到旧结论来源或相关 current 文件。
 - 输出使用 `templates/meeting-analysis.md` 的结构。
 - 如果发现应补充到领域知识层的新术语、实体或分类，在“领域知识更新建议”中单列建议；只有 DIY 版结构扩展、内部 `advanced` profile 或用户明确要求时才更新领域文件。
 

@@ -449,6 +449,86 @@ class MeetingHelpersTest(unittest.TestCase):
     def test_briefs_are_part_of_project_knowledge_commit_surface(self) -> None:
         self.assertTrue(meeting_helpers.is_project_knowledge_path(Path("knowledge/briefs/2026-06-17-summary.md")))
 
+    def test_rollup_templates_use_markdown_source_links(self) -> None:
+        template_expectations = {
+            "templates/current-decisions.md": "[analysis.md](",
+            "templates/current-todos.md": "[analysis.md](",
+            "templates/current-open-questions.md": "[analysis.md](",
+            "templates/timeline.md": "[analysis.md](",
+            "templates/meeting-analysis.md": "[transcript.md](",
+        }
+        for relative_path, expected_link in template_expectations.items():
+            with self.subTest(relative_path=relative_path):
+                text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn(expected_link, text)
+
+    def test_health_lint_reports_broken_markdown_source_links(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            decisions = project_root / "knowledge" / "current-decisions.md"
+            decisions.write_text(
+                "# 当前决定\n\n"
+                "| ID | Decision | Domain | Status | Updated | Supersedes | Source |\n"
+                "| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| decision-1 | Use local project repos | 方案/决策 | active | 2026-06-17 |  | [analysis.md](../meetings/2026/missing/analysis.md) |\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("broken markdown source link", result.stdout)
+
+    def test_health_lint_accepts_existing_markdown_source_links(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            analysis = project_root / "meetings" / "2026" / "m1" / "analysis.md"
+            analysis.parent.mkdir(parents=True)
+            analysis.write_text("# 会议分析\n", encoding="utf-8")
+            decisions = project_root / "knowledge" / "current-decisions.md"
+            decisions.write_text(
+                "# 当前决定\n\n"
+                "| ID | Decision | Domain | Status | Updated | Supersedes | Source |\n"
+                "| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| decision-1 | Use local project repos | 方案/决策 | active | 2026-06-17 |  | [analysis.md](../meetings/2026/m1/analysis.md) |\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertNotIn("broken markdown source link", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

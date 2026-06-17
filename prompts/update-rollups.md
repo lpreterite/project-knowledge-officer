@@ -18,6 +18,7 @@
 - 当前项目 `knowledge/current-open-questions.md`
 - 当前项目 `knowledge/current-todos.md`
 - 当前项目 `knowledge/timeline.md`
+- 当前项目 `knowledge/index.md`
 
 如果项目启用了 DIY 版结构扩展或内部 `advanced` profile，再读取：
 
@@ -41,10 +42,11 @@
 3. 项目级 `current-open-questions.md`
 4. 项目级 `current-todos.md`
 5. 项目级 `timeline.md`
-6. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `by-domain.md`
-7. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
-8. DIY 版结构扩展或内部 `advanced` profile 下的项目仓库级 `domain/*`（仅当新增内容在本项目内复用时）
-9. portfolio/index 模式下的 `project-index.md`、`access-boundaries.md`、`sync-status.md`（仅更新目录、访问边界和同步状态）
+6. 项目级 `index.md`
+7. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `by-domain.md`
+8. DIY 版结构扩展或内部 `advanced` profile 下的项目级 `domain-context.md` / `entity-aliases.md` / `project-taxonomy.md` / `source-map.md`（如有新增领域知识）
+9. DIY 版结构扩展或内部 `advanced` profile 下的项目仓库级 `domain/*`（仅当新增内容在本项目内复用时）
+10. portfolio/index 模式下的 `project-index.md`、`access-boundaries.md`、`sync-status.md`（仅更新目录、访问边界和同步状态）
 
 ## 规则
 
@@ -55,6 +57,9 @@
 - 已完成 todo 改为 `done`，不要删除。
 - 新增未决事项必须进入项目级 `current-open-questions.md`；不要默认同步到跨项目 open question register。
 - 所有条目必须保留 `project`、`domain`、`status`、`updated`、`source`。
+- `source` 必须使用普通 Markdown 链接，优先链接到来源会议 `analysis.md` 或 `artifacts/manifest.yaml`，例如 `[analysis.md](../meetings/YYYY/YYYY-MM-DD_location_topic/analysis.md)`。
+- `timeline.md` 的每条项目状态变化必须链接到导致变化的会议或 artifact。
+- `index.md` 只维护导航链接，不替代 `current-*` 正式结论。
 - domain 默认从 `业务目标`、`范围/需求`、`方案/决策`、`数据/证据`、`交付/执行`、`风险/依赖`、`协作/责任` 中选择一个主分类；如果项目 `project-config.yaml` / `project-taxonomy.md` 已定义自己的分类，以项目级 taxonomy 为准。
 - 不要把单次会议中的噪音写进项目总结；如果启用了 portfolio/index，也不要把项目事实复制进 index/global 文件。
 - 不要在无来源证据的情况下改写 current 结论。
@@ -66,6 +71,7 @@
 - 是否每条 decision、todo、open question 都有 `Domain`。
 - 是否每条 Domain 都属于该项目 `project-config.yaml` 中声明的 domains。
 - 是否每条当前结论都有 source。
+- 是否每条 source 都是可导航 Markdown 链接。
 - 是否保留了被替代旧条目的来源。
 - 是否存在 `unknown` owner / due 需要提醒用户。
 - 是否存在同一天冲突但无具体时间，需要提醒用户确认先后。
