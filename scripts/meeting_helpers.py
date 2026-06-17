@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,7 @@ DOMAIN_TEMPLATE_ROOT = HELPER_ROOT / "domain"
 PROJECT_KNOWLEDGE_TEMPLATE_ROOT = HELPER_ROOT / "templates" / "project-knowledge"
 ARTIFACT_MANIFEST_TEMPLATE = HELPER_ROOT / "templates" / "artifact-manifest.yaml"
 KNOWLEDGE_INDEX_TEMPLATE = HELPER_ROOT / "templates" / "knowledge-index.md"
+KNOWLEDGE_LOG_TEMPLATE = HELPER_ROOT / "templates" / "knowledge-log.md"
 PROFILES = {"minimal", "advanced"}
 MAX_DEFAULT_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
 RAW_ARTIFACT_SUFFIXES = {
@@ -75,6 +77,7 @@ KNOWLEDGE_INDEX_REQUIRED_SECTIONS = [
     "## 重要材料",
     "## 最近知识更新",
 ]
+KNOWLEDGE_LOG_HEADING_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] [a-z][a-z0-9-]* \| .+")
 
 
 PROJECT_GITIGNORE = """# OS/editor noise
@@ -315,6 +318,30 @@ def copy_templates(source_root: Path, destination_root: Path) -> None:
             copy_template_if_missing(template, destination_root / template.name)
 
 
+def make_project_log_entry(operation: str, summary: str, details: list[str] | None = None) -> str:
+    lines = [f"## [{date.today().isoformat()}] {operation} | {summary}"]
+    for detail in details or []:
+        lines.append(f"- {detail}")
+    return "\n".join(lines) + "\n"
+
+
+def write_project_log_if_missing(path: Path, operation: str, summary: str, details: list[str] | None = None) -> None:
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    template = read_text(KNOWLEDGE_LOG_TEMPLATE)
+    content = template.rstrip() + "\n\n" + make_project_log_entry(operation, summary, details)
+    path.write_text(content, encoding="utf-8")
+
+
+def append_project_log(path: Path, operation: str, summary: str, details: list[str] | None = None) -> None:
+    if not path.exists():
+        write_project_log_if_missing(path, operation, summary, details)
+        return
+    existing = read_text(path).rstrip()
+    path.write_text(existing + "\n\n" + make_project_log_entry(operation, summary, details), encoding="utf-8")
+
+
 def make_yaml_list(values: Iterable[str], indent: int = 2) -> str:
     prefix = " " * indent
     return "\n".join(f'{prefix}- "{value}"' for value in values)
@@ -360,6 +387,7 @@ domains:
 {make_yaml_list(selected_domains)}
 required_current_files:
   - "index.md"
+  - "log.md"
   - "current-summary.md"
   - "current-decisions.md"
   - "current-open-questions.md"
@@ -604,6 +632,12 @@ def init_project_root(
     write_if_missing(knowledge_root / "current-todos.md", "# 当前 Todo\n\n")
     write_if_missing(knowledge_root / "timeline.md", "# Timeline\n\n")
     copy_template_if_missing(KNOWLEDGE_INDEX_TEMPLATE, knowledge_root / "index.md")
+    write_project_log_if_missing(
+        knowledge_root / "log.md",
+        "init-project",
+        project_id,
+        ["Created: project knowledge repository scaffold"],
+    )
     if profile == "advanced":
         (project_root / "domain").mkdir(parents=True, exist_ok=True)
         copy_templates(DOMAIN_TEMPLATE_ROOT, project_root / "domain")
@@ -774,6 +808,16 @@ notes: ""
 
     write_if_missing(meeting_root / "analysis.md", "# 会议分析\n\n")
     copy_template_if_missing(ARTIFACT_MANIFEST_TEMPLATE, artifacts_root / "manifest.yaml")
+    try:
+        meeting_relative = meeting_root.relative_to(project_root)
+    except ValueError:
+        meeting_relative = meeting_root
+    append_project_log(
+        project_root / "knowledge" / "log.md",
+        "new-meeting",
+        meeting_id,
+        [f"Created: {meeting_relative.as_posix()}"],
+    )
     return meeting_root
 
 
@@ -859,6 +903,16 @@ def validate_knowledge_index(path: Path, result: ValidationResult) -> None:
     for section in KNOWLEDGE_INDEX_REQUIRED_SECTIONS:
         if section not in text:
             result.error(f"{path}: missing section {section}")
+
+
+def validate_knowledge_log(path: Path, result: ValidationResult) -> None:
+    validate_required(path, result)
+    if not path.exists():
+        return
+    headings = [line for line in read_text(path).splitlines() if line.startswith("## ")]
+    for heading in headings:
+        if not KNOWLEDGE_LOG_HEADING_RE.match(heading):
+            result.error(f"{path}: malformed log heading {heading}")
 
 
 def parse_simple_yaml_value(value: str) -> str | int | list[str]:
@@ -1058,6 +1112,7 @@ def validate_project_root(
     ]:
         validate_required(knowledge_root / filename, result)
     validate_knowledge_index(knowledge_root / "index.md", result)
+    validate_knowledge_log(knowledge_root / "log.md", result)
 
     if profile == "advanced":
         for filename in [

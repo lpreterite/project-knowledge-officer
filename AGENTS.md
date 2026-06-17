@@ -78,6 +78,7 @@
 │           └── artifacts/
 ├── knowledge/
 │   ├── index.md
+│   ├── log.md
 │   ├── current-summary.md
 │   ├── current-decisions.md
 │   ├── current-open-questions.md
@@ -147,6 +148,7 @@ DIY 版结构扩展可以通过内部 `advanced` profile 额外启用：
 - `<project-knowledge-root>/project-config.yaml`
 - `<project-knowledge-root>/knowledge/current-summary.md`
 - `<project-knowledge-root>/knowledge/index.md`
+- `<project-knowledge-root>/knowledge/log.md`
 - `<project-knowledge-root>/knowledge/current-decisions.md`
 - `<project-knowledge-root>/knowledge/current-open-questions.md`
 - `<project-knowledge-root>/knowledge/current-todos.md`
@@ -224,6 +226,7 @@ DIY 版结构扩展可以通过内部 `advanced` profile 额外启用：
 8. 先生成单场会议 `analysis.md`。
 9. 再更新项目级 `knowledge/current-*`、`timeline.md` 和 `knowledge/index.md`。
    - `knowledge/index.md` 是导航入口，不替代 `current-*`、会议 `analysis.md` 或 artifact source。
+   - `knowledge/log.md` 是追加式操作日志，只记录维护动作和文件级摘要，不复制原始 transcript 或敏感附件内容。
 10. 如果启用了 DIY 版结构扩展或内部 `advanced` profile，再更新 `by-domain.md` 和领域知识文件。
 11. 如会议引入新术语、实体、指标或分类，先在 `analysis.md` 中列为“领域知识更新建议”；确认后再更新项目仓库级或项目 knowledge 级领域知识文件。
 12. 如需跨项目视图，只在明确启用 portfolio/index 模式时更新项目索引、访问边界或同步状态；不得默认复制项目事实 register。

@@ -21,6 +21,7 @@ domains:
   - "协作/责任"
 required_current_files:
   - "index.md"
+  - "log.md"
   - "current-summary.md"
   - "current-decisions.md"
   - "current-open-questions.md"

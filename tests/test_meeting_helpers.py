@@ -94,6 +94,94 @@ class MeetingHelpersTest(unittest.TestCase):
             self.assertNotEqual(malformed.returncode, 0)
             self.assertIn("knowledge/index.md: missing section ## 会议", malformed.stdout)
 
+    def test_init_project_creates_knowledge_log_with_parseable_initial_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+
+            log = project_root / "knowledge" / "log.md"
+            self.assertTrue(log.exists())
+            log_text = log.read_text(encoding="utf-8")
+            self.assertIn("# 项目知识操作日志", log_text)
+            self.assertRegex(log_text, r"## \[\d{4}-\d{2}-\d{2}\] init-project \| project")
+            self.assertIn("- Created: project knowledge repository scaffold", log_text)
+
+    def test_validate_project_reports_missing_or_malformed_knowledge_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+
+            log = project_root / "knowledge" / "log.md"
+            log.unlink()
+            missing = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "validate-project",
+                check=False,
+            )
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("knowledge/log.md", missing.stdout)
+
+            log.write_text("# 项目知识操作日志\n\n## init-project project\n", encoding="utf-8")
+            malformed = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "validate-project",
+                check=False,
+            )
+            self.assertNotEqual(malformed.returncode, 0)
+            self.assertIn("knowledge/log.md: malformed log heading", malformed.stdout)
+
+    def test_new_meeting_appends_metadata_only_log_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "new-meeting",
+                "--date",
+                "2026-06-17",
+                "--location",
+                "remote",
+                "--topic",
+                "planning",
+            )
+
+            log_text = (project_root / "knowledge" / "log.md").read_text(encoding="utf-8")
+            self.assertRegex(log_text, r"## \[\d{4}-\d{2}-\d{2}\] new-meeting \| 2026-06-17_remote_planning")
+            self.assertIn("- Created: meetings/2026/2026-06-17_remote_planning", log_text)
+            self.assertNotIn("## Content", log_text)
+
 
 if __name__ == "__main__":
     unittest.main()

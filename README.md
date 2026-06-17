@@ -45,6 +45,8 @@ Agent 只需要向用户确认：
 
 `knowledge/index.md` 是 Agent 和项目成员的导航入口，用来快速定位当前摘要、决定、Todo、未决事项、会议和重要材料；正式结论仍以 `current-*`、会议 `analysis.md` 和来源 artifact 为准。
 
+`knowledge/log.md` 是追加式操作日志，用来记录 Agent 对知识库做过哪些 ingest、建会、归档或检查动作；项目事实的时间线仍以 `timeline.md` 为准。
+
 ## DIY 版什么时候用
 
 当用户想自己调整模板、分类、脚本、Git、校验、附件策略或协作边界时，切换到 DIY 版。DIY 版不是能力等级标签，而是“用户愿意自己动手配置和维护”的工作方式。
@@ -74,6 +76,7 @@ meeting-helpers/
 │   ├── transcript.md
 │   ├── meeting-analysis.md
 │   ├── knowledge-index.md
+│   ├── knowledge-log.md
 │   ├── current-summary.md
 │   ├── by-domain.md
 │   ├── current-decisions.md
@@ -149,6 +152,7 @@ project-a-knowledge/
 ├── meetings/
 ├── knowledge/
 │   ├── index.md
+│   ├── log.md
 │   ├── current-summary.md
 │   ├── current-decisions.md
 │   ├── current-open-questions.md
@@ -198,6 +202,7 @@ meetings/YYYY/YYYY-MM-DD_<location>_<topic>/
 5. 创建会议目录，保留原始 transcript 和附件。
 6. 用 `prompts/analyze-meeting.md` 生成 `analysis.md`。
 7. 用 `prompts/update-rollups.md` 更新项目 `knowledge/current-*`，并维护 `knowledge/index.md` 作为导航入口。
+   - 维护 `knowledge/log.md` 作为操作日志；不要把原始 transcript 或敏感附件内容复制进 log。
 8. 如果出现新术语、实体、指标口径或项目分类，建议更新领域知识文件。
 9. 检查 source、Domain、unknown owner / due、冲突和时间可信度。
 10. 验证通过后提交本地 Git 版本；只有多人协作或同步需要时才推送远端。
