@@ -28,6 +28,7 @@ HELPER_ROOT = Path(__file__).resolve().parents[1]
 DOMAIN_TEMPLATE_ROOT = HELPER_ROOT / "domain"
 PROJECT_KNOWLEDGE_TEMPLATE_ROOT = HELPER_ROOT / "templates" / "project-knowledge"
 ARTIFACT_MANIFEST_TEMPLATE = HELPER_ROOT / "templates" / "artifact-manifest.yaml"
+KNOWLEDGE_INDEX_TEMPLATE = HELPER_ROOT / "templates" / "knowledge-index.md"
 PROFILES = {"minimal", "advanced"}
 MAX_DEFAULT_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
 RAW_ARTIFACT_SUFFIXES = {
@@ -65,6 +66,15 @@ ARTIFACT_MANIFEST_REQUIRED_FIELDS = {
 }
 ARTIFACT_GIT_POLICIES = {"committed", "ignored_external", "external_only", "local_only"}
 LOCAL_ARTIFACT_POLICIES = {"committed", "ignored_external", "local_only"}
+KNOWLEDGE_INDEX_REQUIRED_SECTIONS = [
+    "## 当前状态入口",
+    "## 会议",
+    "## 当前决定",
+    "## 当前 Todo",
+    "## 当前未决事项",
+    "## 重要材料",
+    "## 最近知识更新",
+]
 
 
 PROJECT_GITIGNORE = """# OS/editor noise
@@ -349,6 +359,7 @@ artifact_git_policy:
 domains:
 {make_yaml_list(selected_domains)}
 required_current_files:
+  - "index.md"
   - "current-summary.md"
   - "current-decisions.md"
   - "current-open-questions.md"
@@ -592,6 +603,7 @@ def init_project_root(
     write_if_missing(knowledge_root / "current-open-questions.md", "# 当前未决事项\n\n")
     write_if_missing(knowledge_root / "current-todos.md", "# 当前 Todo\n\n")
     write_if_missing(knowledge_root / "timeline.md", "# Timeline\n\n")
+    copy_template_if_missing(KNOWLEDGE_INDEX_TEMPLATE, knowledge_root / "index.md")
     if profile == "advanced":
         (project_root / "domain").mkdir(parents=True, exist_ok=True)
         copy_templates(DOMAIN_TEMPLATE_ROOT, project_root / "domain")
@@ -839,6 +851,16 @@ def validate_sources(path: Path, result: ValidationResult) -> None:
         result.warn(f"{path}: contains placeholder source or unknown values")
 
 
+def validate_knowledge_index(path: Path, result: ValidationResult) -> None:
+    validate_required(path, result)
+    if not path.exists():
+        return
+    text = read_text(path)
+    for section in KNOWLEDGE_INDEX_REQUIRED_SECTIONS:
+        if section not in text:
+            result.error(f"{path}: missing section {section}")
+
+
 def parse_simple_yaml_value(value: str) -> str | int | list[str]:
     stripped = value.strip()
     if stripped == "[]":
@@ -1035,6 +1057,7 @@ def validate_project_root(
         "timeline.md",
     ]:
         validate_required(knowledge_root / filename, result)
+    validate_knowledge_index(knowledge_root / "index.md", result)
 
     if profile == "advanced":
         for filename in [

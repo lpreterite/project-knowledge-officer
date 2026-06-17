@@ -20,6 +20,7 @@ domains:
   - "风险/依赖"
   - "协作/责任"
 required_current_files:
+  - "index.md"
   - "current-summary.md"
   - "current-decisions.md"
   - "current-open-questions.md"

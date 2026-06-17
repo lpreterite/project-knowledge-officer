@@ -48,6 +48,12 @@ project-a-knowledge/
 ├── inbox/
 ├── meetings/
 ├── knowledge/
+│   ├── index.md
+│   ├── current-summary.md
+│   ├── current-decisions.md
+│   ├── current-open-questions.md
+│   ├── current-todos.md
+│   └── timeline.md
 └── archive/
 ```
 
@@ -73,6 +79,7 @@ project-a-knowledge/
 - 新增会议目录。
 - 新增 transcript、analysis、artifacts。
 - 更新 `current-*`。
+- 更新 `knowledge/index.md` 导航入口。
 - 更新项目 `domain/` 或 `knowledge/*` context。
 
 本地 commit 默认表示 validated knowledge snapshot，而不是任意文件快照。建议每次入库或 rollup 验证通过后提交一次本地 commit：
@@ -167,6 +174,7 @@ Portfolio/index 默认不是事实汇总仓库，不应复制项目级 decisions
 Git 能说明文件怎么变，但不能说明“哪个结论当前有效”。当前有效性由知识文件表达：
 
 - `current-summary.md`：当前摘要。
+- `index.md`：导航入口，帮助 Agent 和项目成员定位当前摘要、决定、Todo、未决事项、会议和重要材料；不作为正式结论来源。
 - `current-decisions.md`：当前有效和已替代决定。
 - `current-open-questions.md`：当前未决事项。
 - `current-todos.md`：当前行动项。
