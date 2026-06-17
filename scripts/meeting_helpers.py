@@ -31,6 +31,7 @@ PROJECT_KNOWLEDGE_TEMPLATE_ROOT = HELPER_ROOT / "templates" / "project-knowledge
 ARTIFACT_MANIFEST_TEMPLATE = HELPER_ROOT / "templates" / "artifact-manifest.yaml"
 KNOWLEDGE_INDEX_TEMPLATE = HELPER_ROOT / "templates" / "knowledge-index.md"
 KNOWLEDGE_LOG_TEMPLATE = HELPER_ROOT / "templates" / "knowledge-log.md"
+BRIEF_TEMPLATE = HELPER_ROOT / "templates" / "brief-template.md"
 PROFILES = {"minimal", "advanced"}
 MAX_DEFAULT_ARTIFACT_SIZE_BYTES = 25 * 1024 * 1024
 RAW_ARTIFACT_SUFFIXES = {
@@ -230,6 +231,8 @@ def is_project_knowledge_path(path: Path) -> bool:
     if path in {Path(".gitignore"), Path("project.md"), Path("project-config.yaml")}:
         return True
     if len(path.parts) == 2 and path.parts[0] in {"knowledge", "domain"} and path.suffix in {".md", ".yaml", ".yml"}:
+        return True
+    if len(path.parts) == 3 and path.parts[:2] == ("knowledge", "briefs") and path.suffix == ".md":
         return True
     if len(path.parts) >= 3 and path.parts[0] == "meetings":
         filename = path.name
@@ -638,6 +641,7 @@ def init_project_root(
         project_id,
         ["Created: project knowledge repository scaffold"],
     )
+    copy_template_if_missing(BRIEF_TEMPLATE, knowledge_root / "briefs" / "_template.md")
     if profile == "advanced":
         (project_root / "domain").mkdir(parents=True, exist_ok=True)
         copy_templates(DOMAIN_TEMPLATE_ROOT, project_root / "domain")
@@ -990,6 +994,33 @@ def lint_repeated_terms_missing_from_context(project_root: Path, result: Validat
             result.warn(f"{project_root / 'meetings'}: repeated term missing from domain/context '{term}'")
 
 
+def section_has_markdown_link(text: str, section: str) -> bool:
+    marker = f"## {section}"
+    if marker not in text:
+        return False
+    section_text = text.split(marker, 1)[1]
+    next_heading = section_text.find("\n## ")
+    if next_heading != -1:
+        section_text = section_text[:next_heading]
+    return "](" in section_text
+
+
+def lint_query_archive_briefs(project_root: Path, result: ValidationResult) -> None:
+    briefs_root = project_root / "knowledge" / "briefs"
+    if not briefs_root.exists():
+        return
+    for brief in sorted(briefs_root.glob("*.md")):
+        if brief.name == "_template.md":
+            continue
+        text = read_text(brief)
+        if "Type: query-archive-brief" not in text:
+            result.warn(f"{brief}: brief missing Type: query-archive-brief")
+        if not section_has_markdown_link(text, "Cited Project Sources"):
+            result.warn(f"{brief}: brief missing Cited Project Sources")
+        if not section_has_markdown_link(text, "Cited Meeting Or Artifact Sources"):
+            result.warn(f"{brief}: brief missing Cited Meeting Or Artifact Sources")
+
+
 def health_lint_project_root(project_root: Path) -> ValidationResult:
     result = ValidationResult()
     if not project_root.exists():
@@ -1000,6 +1031,7 @@ def health_lint_project_root(project_root: Path) -> ValidationResult:
     lint_missing_source_links(project_root, result)
     lint_open_questions_without_timeline_reference(project_root, result)
     lint_repeated_terms_missing_from_context(project_root, result)
+    lint_query_archive_briefs(project_root, result)
     return result
 
 

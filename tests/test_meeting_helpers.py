@@ -4,11 +4,16 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER = REPO_ROOT / "scripts" / "meeting_helpers.py"
+HELPER_SPEC = importlib.util.spec_from_file_location("meeting_helpers", HELPER)
+assert HELPER_SPEC and HELPER_SPEC.loader
+meeting_helpers = importlib.util.module_from_spec(HELPER_SPEC)
+HELPER_SPEC.loader.exec_module(meeting_helpers)
 
 
 class MeetingHelpersTest(unittest.TestCase):
@@ -341,6 +346,108 @@ class MeetingHelpersTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn("repeated term missing from domain/context", result.stdout)
             self.assertIn("Agent Memory", result.stdout)
+
+    def test_init_project_creates_briefs_directory_and_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+
+            brief_template = project_root / "knowledge" / "briefs" / "_template.md"
+            self.assertTrue(brief_template.exists())
+            template_text = brief_template.read_text(encoding="utf-8")
+            self.assertIn("# <Brief Title>", template_text)
+            self.assertIn("- Created:", template_text)
+            self.assertIn("- Status:", template_text)
+            self.assertIn("## Question", template_text)
+            self.assertIn("## Answer", template_text)
+            self.assertIn("## Cited Project Sources", template_text)
+            self.assertIn("## Cited Meeting Or Artifact Sources", template_text)
+
+    def test_health_lint_accepts_well_formed_sourced_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            brief = project_root / "knowledge" / "briefs" / "2026-06-17-launch-summary.md"
+            brief.write_text(
+                "# Launch Summary\n\n"
+                "- Created: 2026-06-17\n"
+                "- Status: active\n"
+                "- Type: query-archive-brief\n\n"
+                "## Question\n\nWhat do we know about launch?\n\n"
+                "## Answer\n\nLaunch depends on owner confirmation.\n\n"
+                "## Cited Project Sources\n\n"
+                "- [current-summary.md](../current-summary.md)\n\n"
+                "## Cited Meeting Or Artifact Sources\n\n"
+                "- [analysis.md](../../meetings/2026/m1/analysis.md)\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual("OK\n", result.stdout)
+
+    def test_health_lint_reports_uncited_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / "project"
+            self.run_helper(
+                "--project-root",
+                str(project_root),
+                "init-project",
+                "--project-id",
+                "project",
+                "--name",
+                "Project",
+                "--no-git",
+            )
+            brief = project_root / "knowledge" / "briefs" / "2026-06-17-unsourced.md"
+            brief.write_text(
+                "# Unsourced\n\n"
+                "- Created: 2026-06-17\n"
+                "- Status: active\n"
+                "- Type: query-archive-brief\n\n"
+                "## Question\n\nWhat happened?\n\n"
+                "## Answer\n\nA derived answer without citations.\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_helper(
+                "--project-root",
+                str(project_root),
+                "health-lint",
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("brief missing Cited Project Sources", result.stdout)
+            self.assertIn("brief missing Cited Meeting Or Artifact Sources", result.stdout)
+
+    def test_briefs_are_part_of_project_knowledge_commit_surface(self) -> None:
+        self.assertTrue(meeting_helpers.is_project_knowledge_path(Path("knowledge/briefs/2026-06-17-summary.md")))
 
 
 if __name__ == "__main__":

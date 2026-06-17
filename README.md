@@ -47,6 +47,8 @@ Agent 只需要向用户确认：
 
 `knowledge/log.md` 是追加式操作日志，用来记录 Agent 对知识库做过哪些 ingest、建会、归档或检查动作；项目事实的时间线仍以 `timeline.md` 为准。
 
+当用户明确要求“把这个回答沉淀/归档/保存为项目理解”时，可以把高质量查询答案保存为 `knowledge/briefs/*.md`。Brief 是带来源引用的二次分析材料，不是正式 decision、todo、open question 或 current summary；如果 brief 中的内容需要进入当前项目状态，必须另行按 rollup 流程更新 `current-*` 并链接回会议或 artifact。
+
 ## DIY 版什么时候用
 
 当用户想自己调整模板、分类、脚本、Git、校验、附件策略或协作边界时，切换到 DIY 版。DIY 版不是能力等级标签，而是“用户愿意自己动手配置和维护”的工作方式。
@@ -153,6 +155,8 @@ project-a-knowledge/
 ├── knowledge/
 │   ├── index.md
 │   ├── log.md
+│   ├── briefs/
+│   │   └── _template.md
 │   ├── current-summary.md
 │   ├── current-decisions.md
 │   ├── current-open-questions.md
@@ -252,7 +256,7 @@ python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge v
 python3 scripts/meeting_helpers.py --project-root /path/to/project-a-knowledge health-lint
 ```
 
-`health-lint` 不替代 `validate-project`。`validate-project` 检查结构、字段、Domain、来源和 artifact manifest 是否满足硬性规则；`health-lint` 只报告需要人工复核的知识健康 warning，例如重复 open todo、缺少 Markdown source link、open question 未进入 timeline、`active` 决定仍带 `Supersedes`、DIY 版重复术语未进入领域知识。
+`health-lint` 不替代 `validate-project`。`validate-project` 检查结构、字段、Domain、来源和 artifact manifest 是否满足硬性规则；`health-lint` 只报告需要人工复核的知识健康 warning，例如重复 open todo、缺少 Markdown source link、open question 未进入 timeline、`active` 决定仍带 `Supersedes`、DIY 版重复术语未进入领域知识、brief 缺少项目或会议来源引用。
 
 验证通过后提交本地版本：
 

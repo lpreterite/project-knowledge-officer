@@ -50,6 +50,8 @@ project-a-knowledge/
 ├── knowledge/
 │   ├── index.md
 │   ├── log.md
+│   ├── briefs/
+│   │   └── _template.md
 │   ├── current-summary.md
 │   ├── current-decisions.md
 │   ├── current-open-questions.md
@@ -180,6 +182,7 @@ Git 能说明文件怎么变，但不能说明“哪个结论当前有效”。�
 - `current-summary.md`：当前摘要。
 - `index.md`：导航入口，帮助 Agent 和项目成员定位当前摘要、决定、Todo、未决事项、会议和重要材料；不作为正式结论来源。
 - `log.md`：追加式操作日志，记录 ingest、建会、归档、lint 等维护动作；不记录原始 transcript 或敏感附件正文。
+- `briefs/*.md`：用户明确要求归档的查询答案或二次分析；必须引用项目文件和会议或 artifact 来源，不替代正式 rollup。
 - `current-decisions.md`：当前有效和已替代决定。
 - `current-open-questions.md`：当前未决事项。
 - `current-todos.md`：当前行动项。
