@@ -8,6 +8,8 @@
 
 只有用户主动要求 DIY、配置、排错、审计、模板调整或协作策略时，才解释 `current-*` 文件、`by-domain.md`、Domain/taxonomy、Git、校验、manifest 或脚本参数。
 
+邮件来源只在用户明确指定检索或提供邮件内容时进入 rollup。不要把邮件服务当作默认监控源，不要主动扫描邮箱，不要把完整邮件正文复制进 rollup；rollup 只引用对应邮件来源 artifact 中的摘要、关键事实和项目影响。
+
 ## 输入
 
 - 最新会议 `analysis.md`
@@ -58,6 +60,7 @@
 - 新增未决事项必须进入项目级 `current-open-questions.md`；不要默认同步到跨项目 open question register。
 - 所有条目必须保留 `project`、`domain`、`status`、`updated`、`source`。
 - `source` 必须使用普通 Markdown 链接，优先链接到来源会议 `analysis.md` 或 `artifacts/manifest.yaml`，例如 `[analysis.md](../meetings/YYYY/YYYY-MM-DD_location_topic/analysis.md)`。
+- 邮件来源应链接到对应 `email-source-artifact.md` 或 `artifacts/manifest.yaml`，并保留用户指定检索范围、邮件主题、发件人和时间信息。
 - `timeline.md` 的每条项目状态变化必须链接到导致变化的会议或 artifact。
 - `index.md` 只维护导航链接，不替代 `current-*` 正式结论。
 - domain 默认从 `业务目标`、`范围/需求`、`方案/决策`、`数据/证据`、`交付/执行`、`风险/依赖`、`协作/责任` 中选择一个主分类；如果项目 `project-config.yaml` / `project-taxonomy.md` 已定义自己的分类，以项目级 taxonomy 为准。

@@ -39,15 +39,17 @@ Agent 只需要向用户确认：
 | 概念 | 含义 |
 | --- | --- |
 | 项目文件夹 | 某个项目的会议和项目知识都在一个本地文件夹中。 |
-| 待处理材料 | 新会议文字、录音、PDF、PPT、图片或补充说明都可以交给 Agent。 |
+| 待处理材料 | 新会议文字、录音、PDF、PPT、图片、补充说明或用户指定检索的邮件都可以交给 Agent。 |
 | 当前项目状态 | Agent 维护项目当前总结、决定、待办、未决问题和时间线。 |
-| 来源证据 | 重要结论都要能追到会议或附件。 |
+| 来源证据 | 重要结论都要能追到会议、附件或来源 artifact。 |
 
 `knowledge/index.md` 是 Agent 和项目成员的导航入口，用来快速定位当前摘要、决定、Todo、未决事项、会议和重要材料；正式结论仍以 `current-*`、会议 `analysis.md` 和来源 artifact 为准。
 
 `knowledge/log.md` 是追加式操作日志，用来记录 Agent 对知识库做过哪些 ingest、建会、归档或检查动作；项目事实的时间线仍以 `timeline.md` 为准。
 
 当用户明确要求“把这个回答沉淀/归档/保存为项目理解”时，可以把高质量查询答案保存为 `knowledge/briefs/*.md`。Brief 是带来源引用的二次分析材料，不是正式 decision、todo、open question 或 current summary；如果 brief 中的内容需要进入当前项目状态，必须另行按 rollup 流程更新 `current-*` 并链接回会议或 artifact。
+
+邮件可以作为补充来源，但当前只定义来源 artifact 协议和 Agent 处理边界，不提供通用邮箱检索 adapter。用户提供邮件导出、截图、转发文本，或明确要求 Agent 用当前可用工具查某个标题/近似标题/发件人/时间范围的邮件时，Agent 可以整理为来源证据。默认保存邮件摘要、元数据和项目影响，不主动扫描邮箱，不做后台监控，也不默认复制完整邮件正文。邮箱适配器作为未来 todo 保留，见 [docs/future-todos.md](docs/future-todos.md)。
 
 ## DIY 版什么时候用
 
@@ -79,6 +81,7 @@ meeting-helpers/
 │   ├── metadata.yaml
 │   ├── transcript.md
 │   ├── meeting-analysis.md
+│   ├── email-source-artifact.md
 │   ├── knowledge-index.md
 │   ├── knowledge-log.md
 │   ├── current-summary.md
@@ -101,6 +104,7 @@ meeting-helpers/
 │   ├── ordinary-and-diy-modes.md
 │   ├── adoption-levels.md
 │   ├── cross-link-conventions.md
+│   ├── future-todos.md
 │   └── versioning.md
 └── examples/
     └── vault-structure.md

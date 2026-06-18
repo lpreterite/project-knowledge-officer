@@ -7,6 +7,7 @@
 - [ ] 已确认这场会议属于哪个项目。
 - [ ] 已确认会议实际发生日期；如果只有文件创建时间或收到时间，已停止并询问用户。
 - [ ] Agent 已回显自动识别的会议主题、地点和材料类型；用户未纠正时按识别结果继续。
+- [ ] 如使用邮件作为来源，用户已明确指定检索范围（标题/近似标题/发件人/时间范围/提供的邮件文件或文本）；没有主动扫描或监控邮箱。
 - [ ] 如是新项目，已确认项目名称。
 - [ ] 如是新项目，已确认使用普通版还是 DIY 版。
 - [ ] 如是新项目，已确认默认隐私设置：此项目默认只给用户本人本机使用；以后共享前先检查敏感附件和共享范围。
@@ -18,6 +19,7 @@
 - [ ] 已读取 `project.md`、`project-config.yaml` 和 `knowledge/current-*`。
 - [ ] 如启用 DIY 版结构扩展或内部 `advanced` profile，已读取项目仓库级 `domain/*` 和项目级 `domain-context.md`、`entity-aliases.md`、`project-taxonomy.md`、`source-map.md`。
 - [ ] 已区分 transcript/ASR、PDF、PPT、图片、表格、录音和用户补充材料；普通版可先把文字材料按 transcript/ASR 处理。
+- [ ] 如有邮件来源，已整理为 `email-source-artifact.md` 格式或等价 artifact；默认保存摘要、元数据和项目影响，不保存完整正文，除非用户明确要求。
 - [ ] 已判断 artifacts 是否应进入 Git；大型/敏感原始材料默认改用外部受控存储并记录 source link/hash。
 - [ ] 外部或 ignored artifact 已登记 `artifacts/manifest.yaml`，并补齐 `filename`、`storage`、`path`、`size_bytes`、`sha256`、`received_datetime`、`source_note`、`access_note`、`git_policy`。
 
@@ -39,6 +41,7 @@
 - [ ] 未知 owner / due 已写 `unknown`，没有猜。
 - [ ] 重要结论有 source。
 - [ ] source 使用可导航 Markdown 链接，指向会议 `analysis.md`、`transcript.md` 或 `artifacts/manifest.yaml`。
+- [ ] 邮件来源只作为用户指定检索得到的来源证据；未把邮件收件时间当作会议发生时间。
 - [ ] 主题、地点、材料类型等自动识别内容已在分析中保留来源或不确定性。
 
 ## Rollup 更新

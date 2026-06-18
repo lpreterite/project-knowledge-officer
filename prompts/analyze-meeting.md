@@ -8,6 +8,8 @@
 
 只有用户主动要求 DIY、配置、排错、审计、模板调整或协作策略时，才解释 `metadata.yaml`、`transcript.md`、`analysis.md`、`artifacts/manifest.yaml`、Domain/taxonomy、Git、校验或脚本参数等内部机制。
 
+邮件可以作为补充来源证据，但当前版本只定义来源 artifact 协议，不提供通用邮箱检索 adapter。邮件必须来自用户明确指定的检索，或用户提供的邮件文件/文本。不要主动扫描、持续监控或默认同步邮箱。用户可以指定标题、近似标题、发件人、收件人或时间范围；Agent 只在当前可用工具支持的范围内检索。默认把邮件整理为摘要、元数据、关键事实和项目影响，不复制完整正文，除非用户明确要求。
+
 ## 上下文输入
 
 分析前应读取：
@@ -42,6 +44,7 @@
 - `meeting_datetime` 是否来自会议实际发生时间，而不是文件创建时间或收件时间。
 - `transcript.md` 是否是完整 ASR / 人工整理文本。普通版默认用户交给 Agent 的文字材料可先按 transcript/ASR 处理；如果发现 PDF/PPT/图片/表格等附件，再作为 artifact 登记和引用。
 - artifacts 中是否有 PDF、PPT、图片、表格或用户补充材料需要作为来源。
+- 是否有用户指定检索得到的邮件来源；如有，应使用 `templates/email-source-artifact.md` 的结构或等价 artifact 记录来源边界、检索范围、元数据、摘要和项目影响。
 - 是否出现领域文件未覆盖的新术语、实体别名、指标口径或项目分类。若未启用 DIY 版结构扩展或内部 `advanced` profile，只在 `analysis.md` 中列为建议，不直接新增领域文件。
 
 如果会议实际发生日期不明确，停止生成最终分析，先要求用户确认。不要用文件创建时间、收到时间或进入 inbox 的时间替代会议实际发生日期。
@@ -65,6 +68,7 @@
 - 对每个决定、未决事项、todo 生成稳定 ID。
 - 每条 decision、todo、open question 都标注 `Domain`。
 - 如果 transcript 中没有负责人或截止时间，写 `unknown`，不要猜。
+- 如果来源是邮件，不要把邮件收件时间当作会议发生时间；只能作为邮件沟通、客户确认或项目证据的时间。
 - 如果某个新观点替代旧观点，标注 `supersedes`。
 - 每个重要结论都要写来源证据，优先引用时间点、发言人、页码、附件名或相关片段摘要。
 - `Source` 字段使用普通 Markdown 链接。会议内条目优先链接 `[transcript.md](transcript.md)` 或 `[artifacts/manifest.yaml](artifacts/manifest.yaml)`；不要只写裸文件名。
