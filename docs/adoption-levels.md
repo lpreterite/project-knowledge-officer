@@ -1,6 +1,6 @@
 # Adoption Levels
 
-这套机制面向两种使用方式：普通版和 DIY 版。两种方式都默认使用“每个项目一个 knowledge 仓库”，真实会议知识不放在 `meeting-helpers` 机制包仓库里。
+这套机制面向两种使用方式：普通版和 DIY 版。两种方式都默认使用“每个项目一个 knowledge 仓库”，真实会议知识不放在 `project-knowledge-officer` 机制包仓库里。
 
 脚本和模板中仍保留 `minimal` / `advanced` 作为内部 profile 兼容名：
 

@@ -4,12 +4,12 @@
 
 ## 1. 机制包版本
 
-`meeting-helpers` 是机制包，只保存 helper、脚本、模板、prompt、AGENTS、checklist、docs 和示例结构。
+`project-knowledge-officer` 是机制包，只保存 helper、脚本、模板、prompt、AGENTS、checklist、docs 和示例结构。
 
 适合用一个普通 Git 仓库管理：
 
 ```text
-meeting-helpers/
+project-knowledge-officer/
 ├── AGENTS.md
 ├── prompts/
 ├── templates/
@@ -60,7 +60,7 @@ project-a-knowledge/
 └── archive/
 ```
 
-项目 knowledge root 应是独立目录和独立本地 Git 仓库，不应嵌套在 `meeting-helpers` 机制包、legacy vault 的 `projects/` 子目录或另一个 project knowledge repo 内。`project-config.yaml` 使用 `repository_role: "project_knowledge"` 标识仓库角色。
+项目 knowledge root 应是独立目录和独立本地 Git 仓库，不应嵌套在 `project-knowledge-officer` 机制包、legacy vault 的 `projects/` 子目录或另一个 project knowledge repo 内。`project-config.yaml` 使用 `repository_role: "project_knowledge"` 标识仓库角色。
 
 默认使用项目仓库边界表达共享范围。谁参与同一个项目，谁共享该项目知识仓库；没有共同项目，就不默认共享真实知识。
 

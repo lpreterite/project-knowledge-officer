@@ -1,6 +1,6 @@
 # 普通版 / DIY 版本地 Agent 模式
 
-本文是 `meeting-helpers` 的双模式使用规格。目标是让普通白领可以在 Codex 或其他本地通用 Agent 中管理会议和项目知识，同时保留给愿意动手的用户自行调整模板、分类、脚本和版本策略的空间。
+本文是 `project-knowledge-officer` 的双模式使用规格。目标是让普通白领可以在 Codex 或其他本地通用 Agent 中管理会议和项目知识，同时保留给愿意动手的用户自行调整模板、分类、脚本和版本策略的空间。
 
 第一版不做云端产品，不要求用户手敲命令。命令行脚本、Git、校验和 artifact manifest 是 Agent 背后的可靠性机制，不是普通版用户必须理解的入口。
 
@@ -69,7 +69,7 @@ Agent 应回显自动识别结果，例如：“我识别主题为 X，材料类
 
 普通版中，Agent 可以把用户提供的邮件，或通过当前可用工具按用户指定范围检索到的邮件，整理为来源 artifact，默认保存摘要、元数据、关键事实和项目影响，不默认复制完整邮件正文。完整邮件正文、附件或导出文件只有在用户明确要求时才保存，并按项目 artifact 策略登记。
 
-DIY 版未来可以进一步配置不同邮件来源适配器，例如 Apple Mail、Gmail、Outlook、导出的 `.eml` 或本地邮件归档。Apple Mail 只是本地可读来源之一，不是 `meeting-helpers` 的核心依赖。邮箱 adapter 的实现开口记录在 [future-todos.md](future-todos.md)。
+DIY 版未来可以进一步配置不同邮件来源适配器，例如 Apple Mail、Gmail、Outlook、导出的 `.eml` 或本地邮件归档。Apple Mail 只是本地可读来源之一，不是 `project-knowledge-officer` 的核心依赖。邮箱 adapter 的实现开口记录在 [future-todos.md](future-todos.md)。
 
 ## 模式转换
 

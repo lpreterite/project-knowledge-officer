@@ -1,8 +1,31 @@
-# Meeting Helpers
+# Project Knowledge Officer
 
 这是一套给 Codex 或其他本地通用 Agent 使用的会议知识库维护机制。目标是让普通白领不用手敲命令，也能把会议录音、ASR、附件、PDF/PPT、截图和补充信息整理成可追溯、可迭代、可按项目汇总的本地 Markdown 知识库。
 
-第一版默认是本地使用，不是云端 SaaS。`meeting-helpers` 自己是机制包，只保存规则、模板、prompt、脚本和示例结构，不保存真实会议知识。
+第一版默认是本地使用，不是云端 SaaS。`project-knowledge-officer` 自己是机制包，只保存规则、模板、prompt、脚本和示例结构，不保存真实会议知识。
+
+## 开源项目定位
+
+`project-knowledge-officer` 开源的是一套“项目知识官”机制包：目录约定、Markdown 模板、Agent prompt、校验脚本和本地 Git 工作流。它帮助本地 Agent 把会议、材料、邮件摘录、用户补充信息等来源，整理成有证据链、可迭代、按项目边界维护的知识库。
+
+这个仓库不保存真实客户会议、真实项目结论、录音、截图、邮件正文或业务附件。真实知识应放在每个项目自己的 `<project-knowledge-root>` 中，并按项目的共享范围、隐私要求和 artifact 策略管理。
+
+适合开源协作的内容包括：
+
+- 改进普通版 / DIY 版的交互规则和说明文档。
+- 优化 `metadata.yaml`、`analysis.md`、`current-*`、`timeline.md` 等模板。
+- 加强 `validate-project`、`health-lint`、artifact manifest 和 commit 边界检查。
+- 补充不同团队场景下的 Domain/taxonomy 示例。
+- 增加不绑定具体邮箱或云服务的来源 artifact 协议。
+
+不适合提交到本仓库的内容包括：
+
+- 真实会议 transcript、客户材料、邮件正文或附件。
+- 真实项目的 decisions、todos、open questions 或 current summary。
+- 没有脱敏的截图、录音、视频、表格或导出文件。
+- 会让某个项目知识仓库事实泄漏到另一个项目的全局汇总。
+
+当前仓库还没有添加正式 `LICENSE` 文件。对外复用或接受外部贡献前，应先明确开源许可证和贡献边界。
 
 ## 普通版怎么开始
 
@@ -62,7 +85,7 @@ Agent 只需要向用户确认：
 ## 机制包包含内容
 
 ```text
-meeting-helpers/
+project-knowledge-officer/
 ├── AGENTS.md
 ├── README.md
 ├── prompts/
@@ -149,7 +172,7 @@ project-a-knowledge/
 4. 为每个真实项目创建独立的 `<project-knowledge-root>`。
 5. 在团队文档中记录项目知识仓库本地路径；只有需要多人协作时才配置远端地址。
 
-`<project-knowledge-root>` 应是独立目录和独立本地 Git 仓库。不要在 `meeting-helpers` 机制包仓库、legacy vault 的 `projects/` 子目录、或另一个 project knowledge repo 内运行 `init-project`。确需接管已有目录时，必须显式使用 `--adopt-existing`。
+`<project-knowledge-root>` 应是独立目录和独立本地 Git 仓库。不要在 `project-knowledge-officer` 机制包仓库、legacy vault 的 `projects/` 子目录、或另一个 project knowledge repo 内运行 `init-project`。确需接管已有目录时，必须显式使用 `--adopt-existing`。
 
 ## 普通版能力底座
 
