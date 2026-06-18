@@ -1,0 +1,16 @@
+project_id: "<project-id>"
+meeting_id: "<YYYY-MM-DD_location_topic>"
+topic: "<meeting topic>"
+location: "<remote|office|client-site|unknown>"
+meeting_datetime: "<YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS+08:00>"
+time_confidence: "unknown"
+received_datetime: "<YYYY-MM-DDTHH:MM:SS+08:00 or unknown>"
+participants:
+  - name: "unknown"
+    role: "unknown"
+source:
+  transcript: "transcript.md"
+  artifacts: []
+tags: []
+notes: ""
+
